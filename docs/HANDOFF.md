@@ -3,6 +3,13 @@
 2026-09-09. User authorized an independent public MIT `ysk424/Arrietty-row`.
 UE 5.8 and C++; do not change existing Arrietty-UE58 or Secret-World projects.
 
+Version 1.0.0 accepted as complete by the user on 2026-09-09, with an explicit
+request to push. The user specifically praised moving forward while rowing.
+Preserve that drive/coast feel as the accepted v1 baseline for future work.
+The user explicitly prefers forward-facing travel for this game and considers
+the backward-facing travel of competitive rowing less enjoyable here. Preserve
+the forward view and forward propulsion; this is an intentional design choice.
+
 Accepted hardware/controls: MERACH MR-R02 (Q1S) self-powered rower; SteamVR HMD;
 one VIVE Tracker 3.0 on the bar center (the former `head` assignment in sibling
 manekko); the existing BLE HR monitor. Serial was extracted as local data only,
@@ -41,10 +48,10 @@ cppwinrt include paths are explicit; OpenVR loads from the staged binary path
 or the pinned local SDK before worker threads start. No global Engine SDK copy
 is needed. The native probe is tools/probe.ps1.
 
-Known refinement areas: verify seated eye placement and lean sensitivity in
-HMD. Core stroke/power model is intentionally tunable, not
-a measured transfer function. Water and shoreline behavior require actual
-rendering and user feedback before treating this as an accepted daily application.
+Future refinement areas include seated eye placement, lean sensitivity, water
+and shoreline behavior. Core stroke/power model is intentionally tunable, not
+a measured transfer function. Version 1 acceptance is recorded above; further
+quantitative evaluation should retain its existing measurement limits.
 
 Follow-up: the main keyboard Enter started a live UE session, but the rider's
 keypad did not. UE maps both Enter variants to one key. Session keys now run in

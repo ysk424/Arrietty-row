@@ -1,5 +1,9 @@
 # Validation
 
+Version **1.0.0** was accepted as complete by the user on **2026-09-09**.
+The user specifically praised the feeling of moving forward while rowing.
+This records rider acceptance alongside the measured checks below.
+
 ## Measured hardware data, 2026-09-09
 
 - Configured bar Tracker connected; 5,262 valid samples in the 55 s capture.
@@ -49,7 +53,7 @@
   The later rower scan found no advertisement; HR advertised but also sent zero
   notifications in a separate Python check after the exercise had ended.
 
-## Remaining physical acceptance
+## Live operation and version 1 acceptance
 
 The later real UE/OpenXR session received **1,316 rower packets**, **1,295 HR
 packets**, and **59,497 valid Tracker frames**, with zero rejected rower packets.
@@ -57,7 +61,7 @@ Its private CSV contains fresh BT power and HR, advancing virtual distance, and
 start/exit records. This verifies live C++ reception separately from the earlier
 Python exercise. The user subsequently confirmed multiple runs using the
 physical keypad and reported left drift. The new calibration/margin/gauge
-changes address that feedback; their physical steering feel still needs review.
+changes address that feedback and are included in the accepted version 1.
 
 The earlier `tools/test_keypad.py` run passed **11 Windows key presses** in a separate
 offline UE game: extended keypad Enter start/pause/resume/restart, main Enter,
@@ -89,9 +93,9 @@ failure in a subsequent 15-second real SteamVR/OpenXR run: device workers stop,
 the engine shuts down, ROW_OPENVR_SHUTDOWN follows, and the log closes normally
 without a critical/fatal error. Evidence: logs/vr-shutdown-20260909-170504.log.
 
-The new setup flow, seated eye position, lean calibration, comfort, stereo frame
-time and the user's judgment of wave appearance remain open for physical
-acceptance. Desktop screenshots and offline model checks do not establish these.
+Version 1 acceptance does not add quantitative stereo frame-time or long-session
+comfort measurements. Those remain future evaluation topics; the automated
+checks and screenshots above retain their stated scope.
 
 Local evidence: logs/ue-build.log, logs/ue-game-build.log,
 logs/content-validation.json, logs/row-wake.log, artifacts/row-view.png,

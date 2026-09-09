@@ -8,8 +8,11 @@ center, and a Bluetooth heart-rate monitor.
 
 The application code is MIT licensed. Unreal Engine, the separately prepared
 Lake Bled scenery, and downloaded OpenVR SDK retain their own licenses.
-This is an initial implementation; live HMD comfort and water appearance need
-the rider's acceptance. See [validation](docs/VALIDATION.md) for measured results.
+Version **1.0.0** was accepted by the rider on **2026-09-09**, with positive
+feedback on the feeling of moving forward while rowing.
+Forward-facing travel is intentional: the rider enjoys the lake and water
+ahead while each drive propels the boat forward.
+See [validation](docs/VALIDATION.md) for measured results and evaluation scope.
 
 ## Use
 
