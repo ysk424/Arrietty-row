@@ -46,3 +46,17 @@ start, so look straight along the machine; verify seated eye placement and
 lean sensitivity in HMD. Core stroke/power model is intentionally tunable, not
 a measured transfer function. Water and shoreline behavior require actual
 rendering and user feedback before treating this as an accepted daily application.
+
+Follow-up: the main keyboard Enter started a live UE session, but the rider's
+keypad did not. UE maps both Enter variants to one key. Session keys now run in
+a game-window-only Slate preprocessor before widget focus, suppress repeats,
+and log ROW_KEY / ROW_CONTROL without device identities or health values.
+The instrument widget cannot take keyboard focus. Nine standard Windows key
+message actions pass; physical keypad acceptance remains pending. Do not claim
+a USB hardware mapping error was established. Live UE C++ BT/HR reception and
+boat movement are now verified; see updated VALIDATION.md.
+
+That live session also exposed a shutdown crash in SteamVR/Vive OpenXR layers:
+the pose worker released OpenVR before UE destroyed its OpenXR HMD. UE now
+defers that release until module shutdown, after joining all device workers and
+Engine PreExit/HMD teardown. The standalone probe retains immediate shutdown.

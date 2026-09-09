@@ -2,6 +2,7 @@
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"
 #include "RowModule.h"
+#include "RowDevices.h"
 static void* OpenVRHandle=nullptr;
 bool RowDeviceApiAvailable() { return OpenVRHandle!=nullptr; }
 class FRowModule:public FDefaultGameModuleImpl {
@@ -16,6 +17,15 @@ public:
         }
         UE_LOG(LogTemp,Display,TEXT("ROW_OPENVR_LIBRARY available=%d"),OpenVRHandle!=nullptr);
     }
-    virtual void ShutdownModule() override { if(OpenVRHandle) FPlatformProcess::FreeDllHandle(OpenVRHandle); OpenVRHandle=nullptr; }
+    virtual void ShutdownModule() override {
+        // Engine PreExit destroys OpenXR before module shutdown. Pawn EndPlay
+        // has already joined pose/BLE workers; it must not destroy SteamVR first.
+        if(OpenVRHandle) {
+            row::Devices::shutdownDeferredVr();
+            UE_LOG(LogTemp,Display,TEXT("ROW_OPENVR_SHUTDOWN after_hmd=1"));
+            FPlatformProcess::FreeDllHandle(OpenVRHandle);
+        }
+        OpenVRHandle=nullptr;
+    }
 };
 IMPLEMENT_PRIMARY_GAME_MODULE(FRowModule, ArriettyRow, "ArriettyRow");

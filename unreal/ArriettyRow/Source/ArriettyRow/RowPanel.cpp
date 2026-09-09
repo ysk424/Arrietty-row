@@ -19,6 +19,6 @@ int32 URowPanel::NativePaint(const FPaintArgs&,const FGeometry& g,const FSlateRe
     for(int i=0;i<4;++i) { text(25+247*i,73,labels[i],18,muted); text(25+247*i,110,values[i],43,white); }
     box(25,195,950,1,FLinearColor(.07,.17,.16));
     text(25,215,Detail,18,muted);
-    text(25,267,TEXT("ENTER Start / Pause     NUM 0 Stop / Home      Lean left / right to steer"),16,muted);
+    text(25,267,TEXT("NUM ENTER Start / Pause     NUM 0 Stop / Home      Lean left / right to steer"),16,muted);
     return layer+2;
 }

@@ -4,7 +4,12 @@
 #include <string>
 
 namespace row {
-struct DeviceConfig { std::string trackerSerial; uint64_t rowerAddress=0,heartAddress=0; };
+struct DeviceConfig {
+    std::string trackerSerial;
+    uint64_t rowerAddress=0,heartAddress=0;
+    // UE shares SteamVR with OpenXR. Release our runtime only after HMD teardown.
+    bool deferVrShutdown=false;
+};
 struct DeviceSnapshot {
     Pose bar,head;
     Telemetry telemetry;
@@ -25,6 +30,8 @@ public:
     Devices& operator=(const Devices&)=delete;
     DeviceSnapshot snapshot() const;
     static double seconds();
+    // Call after all Devices workers and the host's OpenXR session have ended.
+    static void shutdownDeferredVr();
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;

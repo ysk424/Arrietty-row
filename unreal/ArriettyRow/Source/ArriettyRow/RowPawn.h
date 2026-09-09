@@ -9,6 +9,7 @@ class URowPanel;
 class UProceduralMeshComponent;
 class UStaticMeshComponent;
 class ARowWater;
+class FRowKeyInput;
 UCLASS()
 class ARRIETTYROW_API ARowPawn:public APawn {
     GENERATED_BODY()
@@ -19,6 +20,7 @@ public:
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
     virtual void SetupPlayerInputComponent(UInputComponent* Input) override;
 private:
+    friend class FRowKeyInput;
     void Toggle();
     void Stop();
     void BuildBoat();
@@ -45,4 +47,6 @@ private:
     double ScreenshotAt=0;
     FString ScreenshotPath;
     uint64 ValidBarFrames=0;
+    TSharedPtr<FRowKeyInput> KeyInput;
+    TArray<bool> PendingCommands;
 };

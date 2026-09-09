@@ -111,14 +111,19 @@ static void bleLoop(std::shared_ptr<Shared> s,uint64_t address,bool heart) {
     }
     uninit_apartment();
 }
-static void vrLoop(std::shared_ptr<Shared> s,std::string serial) {
+static std::atomic<bool> deferredVrInitialized=false;
+void Devices::shutdownDeferredVr() {
+    if(deferredVrInitialized.exchange(false)) vr::VR_Shutdown();
+}
+static void vrLoop(std::shared_ptr<Shared> s,std::string serial,bool deferShutdown) {
     while(!s->stop) {
         vr::EVRInitError error=vr::VRInitError_None;
-        auto system=vr::VR_Init(&error,vr::VRApplication_Background);
+        auto system=deferShutdown && deferredVrInitialized?vr::VRSystem():vr::VR_Init(&error,vr::VRApplication_Background);
         if(error!=vr::VRInitError_None || !system) {
             for(int i=0;i<30 && !s->stop;++i) std::this_thread::sleep_for(100ms);
             continue;
         }
+        if(deferShutdown) deferredVrInitialized=true;
         int tracker=-1; double nextSearch=0; bool quit=false;
         while(!s->stop && !quit) {
             const double now=Devices::seconds();
@@ -151,14 +156,17 @@ static void vrLoop(std::shared_ptr<Shared> s,std::string serial) {
                 s->data.bar=convert(tracker); s->data.head=convert(vr::k_unTrackedDeviceIndex_Hmd); }
             std::this_thread::sleep_for(5ms);
         }
-        vr::VR_Shutdown();
+        if(!deferShutdown) vr::VR_Shutdown();
         { std::lock_guard lock(s->mutex); s->data.vrReady=false; s->data.bar.valid=s->data.head.valid=false; }
+        // A runtime quit invalidates tracking. Do not tear down the shared
+        // SteamVR client beneath a live OpenXR HMD; the host must restart it.
+        if(deferShutdown) break;
     }
 }
 struct Devices::Impl {
     std::shared_ptr<Shared> shared=std::make_shared<Shared>();
     std::thread vr,ble,hr;
-    explicit Impl(DeviceConfig c):vr(vrLoop,shared,c.trackerSerial),ble(bleLoop,shared,c.rowerAddress,false),hr(bleLoop,shared,c.heartAddress,true) {}
+    explicit Impl(DeviceConfig c):vr(vrLoop,shared,c.trackerSerial,c.deferVrShutdown),ble(bleLoop,shared,c.rowerAddress,false),hr(bleLoop,shared,c.heartAddress,true) {}
     ~Impl() { shared->stop=true; vr.join(); ble.join(); hr.join(); }
 };
 Devices::Devices(DeviceConfig c):impl(std::make_unique<Impl>(c)) {}

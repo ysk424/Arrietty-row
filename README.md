@@ -29,6 +29,8 @@ Sit normally, look along the rowing machine, extend the handle, and press
 stops, saves the session, and returns the boat to its starting position.
 Insert (Num Lock off) and Esc also stop. Lean sideways to turn; head rotation
 alone does not steer. After tracking loss, restore tracking and press Enter.
+Both keypad and main Enter work in the active game window. Session keys are
+handled before widget focus; holding a key causes only one action.
 
 The panel shows **distance, active time, speed, and heart rate**. Distance and
 speed describe the virtual boat's movement. The CSV separately records machine
@@ -55,6 +57,8 @@ The approved Lake Bled mesh mountains and UE atmosphere form the distant view.
 
 `./tools/build_native.ps1` runs the engine-independent C++ checks.
 `./tools/build_native.ps1 -Devices` builds the native hardware probe.
+`python tools/test_keypad.py` checks keypad/main Enter, repeat suppression, and
+stop keys through Windows messages in a separate offline UE game window.
 `tools/diagnose.py` is an optional Python diagnostic tool; Python is not part
 of the simulator runtime. The editor content generator also uses UE's Python.
 

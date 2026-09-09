@@ -22,6 +22,43 @@
 #include "Serialization/JsonSerializer.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/Console.h"
+#include "Framework/Application/IInputProcessor.h"
+#include "Framework/Application/SlateApplication.h"
+
+// Windows maps both main Enter and extended (keypad) Enter to EKeys::Enter.
+// Receive session controls before widget focus can consume them. Restrict this
+// to the active game window, leaving other apps, editor windows and console alone.
+class FRowKeyInput final:public IInputProcessor {
+public:
+    explicit FRowKeyInput(ARowPawn* pawn):Pawn(pawn) {}
+    void Tick(float,FSlateApplication&,TSharedRef<ICursor>) override {}
+    bool HandleKeyDownEvent(FSlateApplication& app,const FKeyEvent& event) override {
+        if(!Accepts(app,event)) return false;
+        if(!event.IsRepeat()) {
+            Pawn->PendingCommands.Add(event.GetKey()==EKeys::Enter);
+            UE_LOG(LogTemp,Display,TEXT("ROW_KEY key=%s route=preprocessor"),*event.GetKey().ToString());
+        }
+        return true; // Also consume repeats; one press must cause one action.
+    }
+    bool HandleKeyUpEvent(FSlateApplication& app,const FKeyEvent& event) override { return Accepts(app,event); }
+    const TCHAR* GetDebugName() const override { return TEXT("RowKeypad"); }
+private:
+    bool Accepts(FSlateApplication& app,const FKeyEvent& event) const {
+        if(!Pawn.IsValid() || event.IsAltDown() || event.IsControlDown() || event.IsCommandDown() || event.IsShiftDown()) return false;
+        const auto key=event.GetKey();
+        if(key!=EKeys::Enter && key!=EKeys::NumPadZero && key!=EKeys::Insert && key!=EKeys::Escape) return false;
+        const auto world=Pawn->GetWorld();
+        const auto viewport=world?world->GetGameViewport():nullptr;
+        if(!viewport || (viewport->ViewportConsole && viewport->ViewportConsole->ConsoleActive())) return false;
+        const auto window=viewport->GetWindow();
+        return window.IsValid() && app.GetActiveTopLevelWindow()==window;
+    }
+    TWeakObjectPtr<ARowPawn> Pawn;
+};
 
 ARowPawn::ARowPawn() {
     PrimaryActorTick.bCanEverTick=true; AutoPossessPlayer=EAutoReceiveInput::Player0;
@@ -37,7 +74,7 @@ ARowPawn::ARowPawn() {
     Instruments->SetDrawSize(FVector2D(1000,300)); Instruments->SetRelativeLocation(FVector(115,0,53));
     Instruments->SetRelativeRotation(FRotator(22,180,0)); Instruments->SetRelativeScale3D(FVector(.075));
     Instruments->SetTwoSided(true); Instruments->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    Instruments->SetCastShadow(false);
+    Instruments->SetCastShadow(false); Instruments->SetWindowFocusable(false);
     static ConstructorHelpers::FObjectFinder<UStaticMesh> mesh(TEXT("/Engine/BasicShapes/Cube.Cube")); Cube=mesh.Object;
 }
 void ARowPawn::BeginPlay() {
@@ -56,7 +93,7 @@ void ARowPawn::BeginPlay() {
     if(!Offline) {
         FString configPath=FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()/TEXT("../../settings.local.json"));
         FParse::Value(FCommandLine::Get(),TEXT("RowSettings="),configPath);
-        FString json; TSharedPtr<FJsonObject> cfg; row::DeviceConfig dc;
+        FString json; TSharedPtr<FJsonObject> cfg; row::DeviceConfig dc; dc.deferVrShutdown=true;
         if(FFileHelper::LoadFileToString(json,*configPath) && FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(json),cfg)) {
             FString serial,address; cfg->TryGetStringField(TEXT("tracker_serial"),serial); dc.trackerSerial=TCHAR_TO_UTF8(*serial);
             auto readAddress=[&](const TCHAR* key) { FString a; cfg->TryGetStringField(key,a); a.ReplaceInline(TEXT(":"),TEXT("")); a.ReplaceInline(TEXT("-"),TEXT("")); return FCString::Strtoui64(*a,nullptr,16); };
@@ -66,8 +103,15 @@ void ARowPawn::BeginPlay() {
         else Notice=TEXT("OpenVR SDK missing / run bootstrap");
     }
     Instruments->InitWidget(); Panel=Cast<URowPanel>(Instruments->GetWidget());
+    if(Panel) Panel->SetIsFocusable(false);
     if(auto mat=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Row/Materials/M_Instruments.M_Instruments"))) Instruments->SetMaterial(0,mat);
     BuildBoat(); Water=GetWorld()->SpawnActor<ARowWater>();
+    if(auto pc=Cast<APlayerController>(GetController())) pc->SetInputMode(FInputModeGameOnly());
+    UWidgetBlueprintLibrary::SetFocusToGameViewport();
+    if(FSlateApplication::IsInitialized()) {
+        KeyInput=MakeShared<FRowKeyInput>(this);
+        FSlateApplication::Get().RegisterInputPreProcessor(KeyInput,0);
+    }
     UE_LOG(LogTemp,Display,TEXT("ROW_READY offline=%d demo=%d reference_water_z_cm=0"),Offline,Demo);
 }
 void ARowPawn::SetupPlayerInputComponent(UInputComponent* input) {
@@ -94,9 +138,16 @@ row::Input ARowPawn::ReadInput() const {
     return in;
 }
 void ARowPawn::Toggle() {
-    if(Model.state==row::State::Running) { Model.pause(); Record(TEXT("pause")); return; }
+    if(Model.state==row::State::Running) {
+        Model.pause(); Notice.Empty(); Record(TEXT("pause"));
+        UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=pause")); return;
+    }
     const auto in=ReadInput();
-    if(!Model.start(in)) { Notice=TEXT("Waiting for HMD + bar tracking"); return; }
+    if(!Model.start(in)) {
+        Notice=TEXT("Enter received / check HMD + bar");
+        UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=start_blocked head_valid=%d bar_valid=%d"),in.head.valid,in.bar.valid);
+        return;
+    }
     // Latch the horizontal view the rider actually sees; do not impose room yaw.
     Model.heading=FMath::DegreesToRadians(Chase?GetActorRotation().Yaw:Camera->GetComponentRotation().Yaw);
     if(!Offline) {
@@ -112,6 +163,7 @@ void ARowPawn::Toggle() {
         FFileHelper::SaveStringToFile(TEXT("utc,event,active_s,distance_m,speed_kmh,heart_bpm,strokes,source,machine_distance_m,machine_elapsed_s,machine_speed_kmh,power_w\n"),*SessionFile);
     }
     Notice.Empty(); Record(TEXT("start"));
+    UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=start"));
 }
 void ARowPawn::Stop() {
     if(!SessionFile.IsEmpty()) Record(TEXT("stop")); SessionFile.Empty();
@@ -120,9 +172,13 @@ void ARowPawn::Stop() {
     BoatRoot->SetRelativeRotation(FRotator::ZeroRotator);
     Instruments->SetRelativeLocation(FVector(115,0,53)); Instruments->SetRelativeRotation(FRotator(22,180,0));
     Notice=TEXT("Stopped / Home");
+    UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=stop_home"));
 }
 void ARowPawn::Tick(float dt) {
     Super::Tick(dt); if(Devices) Snapshot=Devices->snapshot();
+    // Run world/session mutations on the pawn tick, after refreshing devices.
+    TArray<bool> commands; Swap(commands,PendingCommands);
+    for(bool toggle:commands) { if(toggle) Toggle(); else Stop(); }
     if(Snapshot.bar.valid) ++ValidBarFrames;
     if(Demo && !DemoStarted && row::Devices::seconds()-Began>8) { Toggle(); DemoStarted=true; }
     const auto in=ReadInput(); const auto oldState=Model.state; const double oldHeading=Model.heading;
@@ -160,7 +216,7 @@ void ARowPawn::Tick(float dt) {
         const auto hr=Snapshot.heart;
         Panel->Heart=hr.fresh(in.now,5) && hr.value>0?FString::Printf(TEXT("%.0f"),hr.value):TEXT("--");
         const TCHAR* state=Model.state==row::State::Running?TEXT("ROWING"):Model.state==row::State::Paused?TEXT("PAUSED"):
-            Model.state==row::State::TrackingLost?TEXT("TRACKING LOST / ENTER"):TEXT("READY / ENTER");
+            Model.state==row::State::TrackingLost?TEXT("TRACKING LOST / NUM ENTER"):TEXT("READY / NUM ENTER");
         Panel->Status=Demo?TEXT("DEMO / synthetic strokes"):!Notice.IsEmpty()?Notice:state;
         Panel->Detail=FString::Printf(TEXT("%s   %.0f W   %u strokes   HR %s"),Model.usingBt?TEXT("BT power"):TEXT("Tracker estimate"),Model.power,Model.strokes,
             hr.fresh(in.now,5) && hr.value>0?TEXT("connected"):TEXT("--"));
@@ -184,6 +240,8 @@ void ARowPawn::Record(const TCHAR* event) {
     FFileHelper::SaveStringToFile(line,*SessionFile,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM,&IFileManager::Get(),FILEWRITE_Append);
 }
 void ARowPawn::EndPlay(const EEndPlayReason::Type reason) {
+    if(KeyInput && FSlateApplication::IsInitialized()) FSlateApplication::Get().UnregisterInputPreProcessor(KeyInput);
+    KeyInput.Reset(); PendingCommands.Empty();
     Record(TEXT("exit"));
     if(Devices) UE_LOG(LogTemp,Display,TEXT("ROW_DEVICE_SUMMARY tracker_frames=%llu rower_packets=%u heart_packets=%u rejected=%u"),
         ValidBarFrames,Snapshot.telemetry.packets,Snapshot.heartPackets,Snapshot.telemetry.rejected);

@@ -41,9 +41,25 @@
 
 ## Remaining physical acceptance
 
-The full C++ path needs another awake-rower / worn-HR notification test. The
-successful 148/120 notification exercise above used Python diagnostics. Do not
-report the C++ BLE path as live-accepted until its counters advance.
+The later real UE/OpenXR session received **1,316 rower packets**, **1,295 HR
+packets**, and **59,497 valid Tracker frames**, with zero rejected rower packets.
+Its private CSV contains fresh BT power and HR, advancing virtual distance, and
+start/exit records. This verifies live C++ reception separately from the earlier
+Python exercise. The user started this session with the main keyboard Enter;
+physical keypad operation still needs confirmation after the input routing fix.
+
+`tools/test_keypad.py` passes **9 Windows-message input actions** in a separate
+offline UE game: extended keypad Enter start/pause/resume/restart, main Enter,
+numpad 0 with Num Lock on, Insert with Num Lock off, and Esc. Each press includes
+three repeat messages; exactly one command is logged per press. All commands
+pass through the Slate preprocessor and the offline game exits with code 0.
+This does not test the user's physical USB keypad or input to an inactive app.
+
+The original live session crashed during HMD teardown after its CSV exit record
+was saved. Deferring OpenVR release until after OpenXR teardown removes that
+failure in a subsequent 15-second real SteamVR/OpenXR run: device workers stop,
+the engine shuts down, ROW_OPENVR_SHUTDOWN follows, and the log closes normally
+without a critical/fatal error. Evidence: logs/vr-shutdown-20260909-170504.log.
 
 Actual HMD operation, keypad reach, seated eye position, lean calibration,
 comfort, stereo frame time and the user's judgment of wave appearance remain
