@@ -6,12 +6,13 @@ center, and a Bluetooth heart-rate monitor.
 
 日本語の操作手順: [USAGE.ja.md](docs/USAGE.ja.md)
 
-ケルビン波の実装・実機確認・統合の手順: [WATER.ja.md](docs/WATER.ja.md)
+ケルビン波・舳先の白波の説明: [WATER.ja.md](docs/WATER.ja.md)
 
 The application code is MIT licensed. Unreal Engine, the separately prepared
 Lake Bled scenery, and downloaded OpenVR SDK retain their own licenses.
-Version **1.0.0** was accepted by the rider on **2026-09-09**, with positive
-feedback on the feeling of moving forward while rowing.
+Version **1.1.0** was accepted by the rider on **2026-09-10**, including Kelvin
+wakes and speed-driven bow whitewater. It is the official version on `main`;
+development and normal launches use the original `Arrietty-row` checkout.
 Forward-facing travel is intentional: the rider enjoys the lake and water
 ahead while each drive propels the boat forward.
 See [validation](docs/VALIDATION.md) for measured results and evaluation scope.
@@ -65,11 +66,10 @@ height field combines dispersive bow/stern waves with oar ripples, leaving curve
 wakes and decaying foam in world space. The HMD horizon stays level while the hull moves.
 The approved Lake Bled mesh mountains and UE atmosphere form the distant view.
 
-The `feat/kelvin-wake` worktree adds a deep-water dispersive bow/stern solver:
+Version 1.1.0 includes a deep-water dispersive bow/stern solver:
 transverse waves, divergent waves and curved wake history. Oar ripples and foam
-remain separate. See [Kelvin wake development](docs/WATER.md) for the model,
-offline previews and checks. This feature is not yet merged into the accepted
-training version on `main`.
+remain separate. See [Kelvin wake model](docs/WATER.md) for the model,
+offline previews and checks.
 Speed-driven whitewater now forms outside the bow, growing during faster travel
 and fading after stopping; it also continues during coasting.
 

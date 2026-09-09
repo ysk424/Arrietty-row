@@ -1,12 +1,12 @@
-# Kelvin wake development
+# Kelvin wake and bow whitewater
 
-日本語の説明・実機確認手順: [WATER.ja.md](WATER.ja.md)
+日本語の説明・起動手順: [WATER.ja.md](WATER.ja.md)
 
-This feature lives on `feat/kelvin-wake` in a separate Git worktree. The rider's
-accepted v1.0.0 on `main` remains the training version until explicit acceptance
-and integration. Do not regenerate assets or build this feature in the training
-checkout. Keep each worktree's Content, Binaries, Intermediate, Saved and local
-settings separate; copy required local assets instead of sharing writable links.
+Kelvin wakes and bow whitewater are part of accepted **v1.1.0** on `main`.
+The rider approved the result and integration on 2026-09-10. Normal launches
+and further development use the original `Arrietty-row` checkout. The temporary
+feature worktree is retired; its local evidence is preserved in the main
+checkout under `logs/kelvin-worktree/` and `artifacts/kelvin-worktree/`.
 
 ## Model
 
@@ -70,7 +70,7 @@ Kelvin evidence: `./tools/preview.ps1 -Chase -Straight -Name row-bow-chase` and
 
 ## Reproduce the checks
 
-Run these from the feature worktree:
+Run these from the normal `Arrietty-row` checkout:
 
 ```powershell
 ./tools/build_native.ps1
@@ -103,6 +103,6 @@ tension. The 25 cm grid suppresses very short waves at low speed; the finite
 visible radius limits long wavelengths and old wakes at higher speed. Foam is
 still an artistic oar/hull bubble layer rather than a computed breaking model.
 Fixed-step pressure sampling and the boundary sponge introduce approximation.
-Numerical field checks and desktop renders do not establish stereo frame time,
-HMD comfort, physical training acceptance, or approval to merge. See
-[validation](VALIDATION.md) for measured evidence.
+Numerical field checks and desktop renders do not establish quantitative stereo
+frame time or long-session comfort. Rider acceptance of v1.1.0 is recorded
+separately in [validation](VALIDATION.md), alongside the measured evidence.

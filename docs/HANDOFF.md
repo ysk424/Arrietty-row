@@ -1,27 +1,28 @@
 # Handoff
 
-2026-09-10 development: the rider successfully trained again on the accepted
-version and requested new features in a separate worktree, with integration only
-after acceptance. Kelvin wake work is on `feat/kelvin-wake`, based on `f45ba55`.
-Keep `main` available for training; do not merge this feature without the rider's
-OK. No existing sibling project is part of this work. See [WATER.md](WATER.md)
-for the dispersive solver, offline verification and limits. Generated content,
-build outputs and private settings are local copies in the feature worktree.
+2026-09-10 release: the rider accepted the Kelvin wake and bow-whitewater result,
+said this worktree's objective was achieved, and explicitly requested push,
+integration into main, adoption as the official version, and deletion of the
+temporary worktree directory. Version **1.1.0** is the resulting accepted release.
+The previous wait-for-integration instruction is satisfied by that explicit
+approval; do not ask for it again. Future development and launches use the
+original `Arrietty-row` checkout on main, not the retired worktree path.
 
-Acceptance clarification: the rider said the validation PNG looks promising,
-but explicitly stated that integration into main comes AFTER a real-device
-test and must not happen yet. That test must use the feature worktree. Do not
-treat image feedback or completion of a test as merge authorization; wait for
-the rider's explicit integration instruction after reviewing the test results.
-Japanese explanation and test instructions: [WATER.ja.md](WATER.ja.md).
+The integrated feature history is `1551730`, `4efc03d`, `533bc91`, based on
+v1.0.0 (`f45ba55`). RowKelvin.h provides dispersive gravity waves;
+RowBowWhitewater.h adds speed-driven bow foam and a small visual crest. Existing
+oar effects, controls, drive/coast feel and Lake Bled geometry remain.
+Japanese explanation: [WATER.ja.md](WATER.ja.md). Technical model: [WATER.md](WATER.md).
 
-Follow-up request: add speed-dependent whitewater at the bow, alongside the
-Kelvin wake in the same worktree. RowBowWhitewater.h deposits bilateral bow
-foam outside the visible hull and adds a small visual crest to both height and
-normals. It uses boat speed through drive/coast, stops emitting at rest, and
-leaves fading world-space foam. Existing oar effects and live controls remain.
-The feature still requires worktree hardware testing and explicit integration
-instruction before any change to main.
+Before removing the worktree, its local logs and artifacts were preserved under
+`logs/kelvin-worktree/` and `artifacts/kelvin-worktree/` in the main checkout.
+All Saved data is archived under `logs/kelvin-worktree/saved/`; sessions are also
+copied into the normal Saved/Sessions directory without overwriting differing
+records. Settings, content and SDK files were verified during local migration;
+the normal checkout is rebuilt at its own path. All local evidence, settings,
+sessions and generated/binary content remain excluded from Git.
+Rider acceptance does not invent new quantitative HMD or long-session measures;
+the recorded measurements and limits remain in [VALIDATION.md](VALIDATION.md).
 
 2026-09-09. User authorized an independent public MIT `ysk424/Arrietty-row`.
 UE 5.8 and C++; do not change existing Arrietty-UE58 or Secret-World projects.

@@ -1,9 +1,50 @@
 # Validation
 
+## Accepted version 1.1.0 and integration, 2026-09-10
+
+The rider stated that the worktree objective was achieved and the result was
+in very good shape, and explicitly requested push, adoption as the official
+version on main, continued development in the original checkout, and removal
+of the temporary worktree. This is rider acceptance of **v1.1.0**, including
+Kelvin wakes and speed-driven bow whitewater. The integration preserves the
+feature commits `1551730`, `4efc03d` and `533bc91` above the v1.0.0 baseline.
+
+Verification repeated in the original `Arrietty-row` checkout:
+
+- **76 core + 46 water checks pass**, along with the two-speed wavelength and
+  confinement checks. Evidence: `logs/native-v1.1.0.log`,
+  `logs/water-plot-v1.1.0.log`, `artifacts/water/measurements.json`.
+- UE **5.8.2 Editor and Game Development targets rebuild successfully at the
+  normal checkout path**. Evidence: `logs/ue-v1.1.0-editor-build.log` and
+  `logs/ue-v1.1.0-game-build.log`.
+- A real D3D12 **1600 x 1000** offline demo renders the wake and bow whitewater,
+  records **10.15 m** while running, and exits normally. The log identifies
+  both `kelvin=deep_water_fft` and `bow_whitewater=speed`. Evidence:
+  `artifacts/row-v1-1-0-view.png`, `logs/row-v1-1-0-view.log`.
+- The production UE calibration/Enter/pause/stop/panel-attachment regression
+  passes: `logs/setup-controls-20260910-081923.log`.
+- Saved-map verification retains **312 mesh actors / 961,237 source triangles**,
+  native atmosphere and **water Z=0 cm**: `logs/ue-v1.1.0-content.log` and
+  `logs/content-validation.json`.
+
+Before cleanup, 565 original local files were verified against their retained
+copies. Worktree logs/artifacts are archived under `logs/kelvin-worktree/` and
+`artifacts/kelvin-worktree/`; all Saved data is retained under
+`logs/kelvin-worktree/saved/`. Fifteen session files were also transferred into
+the normal session directory without overwriting differing records. Settings,
+content and the pinned SDK were preserved/verified. No personal data, generated
+assets or binaries are added to Git. Regenerable worktree build/cache files can
+be discarded. Local migration manifests remain under ignored `logs/`.
+
+The following sections preserve the earlier development evidence and its
+limits. Their pending-acceptance state has been superseded by the explicit
+v1.1.0 acceptance above. No new quantitative stereo frame-time or long-session
+comfort measurements are inferred from that acceptance.
+
 ## Bow whitewater follow-up, 2026-09-10
 
-The rider requested whitewater at the bow that responds to boat speed. This
-change is in the same `feat/kelvin-wake` worktree and is not merged into main.
+The rider requested whitewater at the bow that responds to boat speed. These
+checks were performed in `feat/kelvin-wake` before its acceptance as v1.1.0.
 
 - MSVC `/W4 /WX /O2`: **76 core checks and 46 water checks pass**. Added checks
   cover zero/invalid/very low speed, increasing foam at 1/2/3 m/s, emission ahead
@@ -11,11 +52,11 @@ change is in the same `feat/kelvin-wake` worktree and is not merged into main.
   emission consistency, world-space persistence, stopping/decay, bounded crest,
   unchanged oar foam/height fields, and clearing on teleport. Kelvin dispersion
   and propagation checks also remain successful. Evidence:
-  `logs/native-bow-water.log`.
+  `logs/kelvin-worktree/native-bow-water.log`.
 - Final UE **5.8.2 Editor and Game Development targets compile**, with no C++
-  warnings in `logs/ue-bow-build.log` and `logs/ue-bow-game-build.log`.
+  warnings in `logs/kelvin-worktree/ue-bow-build.log` and `logs/kelvin-worktree/ue-bow-game-build.log`.
 - The production UE setup/control test passes on rerun without a runtime code
-  change: `logs/setup-controls-20260910-080048.log`. The first attempt ended
+  change: `logs/kelvin-worktree/setup-controls-20260910-080048.log`. The first attempt ended
   after the automation controller dispatched the test, with no completion or
   control-handler records (`setup-controls-20260910-075843.log`). Its cause was
   not established; do not count that first attempt as a pass. The test launcher
@@ -25,37 +66,37 @@ change is in the same `feat/kelvin-wake` worktree and is not merged into main.
   faster than the existing oar foam, keeping the new whitewater concentrated near
   the bow. First-person and chase captures both record a running session at
   **10.15 m** and exit normally. The log identifies `bow_whitewater=speed`.
-  Evidence: `artifacts/row-bow-view.png`, `artifacts/row-bow-chase.png` and the
-  corresponding `logs/row-bow-*.log`.
+  Evidence: `artifacts/kelvin-worktree/row-bow-view.png`, `artifacts/kelvin-worktree/row-bow-chase.png` and the
+  corresponding `logs/kelvin-worktree/row-bow-*.log`.
 - The same copied water material displays the combined foam and crest field;
   generated material/scenery assets were not rebuilt for this change. The
   additional crest contributes to both height and its normal derivatives.
 
 These checks use synthetic inputs. Bow whitewater is an artistic effect, with
-no particle/breaking-fluid simulation. Hardware/HMD appearance, sustained frame
-time and training comfort still require testing in the worktree. They do not
-constitute rider acceptance or permission to integrate into main.
+no particle/breaking-fluid simulation. These measurements do not quantify
+HMD frame time or long-session comfort. Subsequent rider acceptance and
+integration authorization are recorded separately above.
 
 ## Kelvin feature worktree, 2026-09-10
 
-This is development evidence for `feat/kelvin-wake`, not approval to replace the
-accepted training version. The rider reported another successful training run
-on that version and requested isolated worktree development until acceptance.
-The original checkout remains at `f45ba55`; no merge or push was performed.
+This is historical development evidence for `feat/kelvin-wake`. The rider had
+reported another successful run on v1.0.0 and requested isolated development.
+At the time of these checks the original checkout remained at `f45ba55`, with
+integration deferred. Subsequent v1.1.0 acceptance supersedes that pending state.
 
 - MSVC `/W4 /WX /O2`: **76 existing core checks and 28 water checks pass**.
   The water checks cover two independent Fourier-mode dispersion oracles, no
   new wake at rest, invalid speed, steady motion at 2 and 3 m/s, bilateral
   symmetry, bounded amplitude, reference-level drift, exact world-space sample
   translation, stopping/decay, teleport clearing both state fields, turns, and
-  export of synthetic evidence. Evidence: `logs/native-water.log`.
+  export of synthetic evidence. Evidence: `logs/kelvin-worktree/native-water.log`.
 - Measured transverse wavelengths in exported C++ fields: **2.50 m** at 2 m/s
   (theory 2.562 m), **5.875 m** at 3 m/s (theory 5.764 m). `plot_water.py` also
   checks mean-square displacement outside the bow's theoretical wedge: the
   26–55 degree sector has **0.077% / 0.083%** of the within-21-degree sector's
   mean-square displacement, sampled 9–23 m astern. This checks confinement;
   it is not an exact measurement of the cusp angle. Evidence:
-  `artifacts/water/measurements.json` and `kelvin-validation.png` in that folder.
+  `artifacts/kelvin-worktree/water/measurements.json` and `kelvin-validation.png` in that folder.
 - After 40 s of straight motion, interior peak displacements are **4.32 cm /
   6.94 cm** for those speeds, with mirror differences below 0.003 mm. Thirty
   seconds after removing pressure, integrated squared height is **2.65% /
@@ -65,33 +106,33 @@ The original checkout remains at `f45ba55`; no merge or push was performed.
   including domain recentering and test bookkeeping. This is a standalone CPU
   measurement, not UE frame time, GPU cost, a worst-case bound or VR performance.
 - UE **5.8.2 Editor and Game Development targets compile**, without C++ warnings
-  in the final build logs: `logs/ue-build.log`, `logs/ue-game-build.log`.
+  in the final build logs: `logs/kelvin-worktree/ue-build.log`, `logs/kelvin-worktree/ue-game-build.log`.
 - `tools/test_setup.ps1` passes the production UE control regression for extra
   Enter, setup completion, pause, stop/retry and panel attachment. Evidence:
-  `logs/setup-controls-20260910-065743.log`. No new physical keypad/USB test or
+  `logs/kelvin-worktree/setup-controls-20260910-065743.log`. No new physical keypad/USB test or
   BLE/Tracker exercise was performed for this feature.
 - Saved-map verification still reports **312 scenery mesh actors / 961,237
   source triangles**, native atmosphere/sun/sky/fog, and water reference
-  **Z=0 cm**. Evidence: `logs/content-validation.json` and
-  `logs/ue-verify-content.log`. The worktree uses its own local content copy.
+  **Z=0 cm**. Evidence: `logs/kelvin-worktree/content-validation.json` and
+  `logs/kelvin-worktree/ue-verify-content.log`. The worktree uses its own local content copy.
 - Actual D3D12 UE **1600 x 1000** synthetic previews render the combined field,
   hull, oars and foam during straight motion and turns. The elevated aft view
   captures after 52 seconds with a running session; both runs close normally.
   The water log identifies `kelvin=deep_water_fft hz=30`. Evidence:
-  `artifacts/row-kelvin-straight.png`, `artifacts/row-kelvin-turn.png` and their
-  corresponding `logs/*.log`. Wake contrast depends strongly on view and sun
+  `artifacts/kelvin-worktree/row-kelvin-straight.png`, `artifacts/kelvin-worktree/row-kelvin-turn.png` and their
+  corresponding `logs/kelvin-worktree/*.log`. Wake contrast depends strongly on view and sun
   reflection; the field plot isolates the physical wave pattern from wind and
   shading. These captures do not measure the rendered envelope angle or imply
   rider acceptance of its appearance.
 - Normal first-person and chase previews also close normally after capturing a
   running synthetic session at **10.15 m**, with the four metrics, missing HR
   shown as `--`, the +/-8 cm steering gauge and the existing distant scenery.
-  Evidence: `artifacts/row-view.png`, `artifacts/row-wake.png` and corresponding
+  Evidence: `artifacts/kelvin-worktree/row-view.png`, `artifacts/kelvin-worktree/row-wake.png` and corresponding
   logs. The copied map and water-material asset hashes match the training
   checkout; no generated scenery or material was changed.
 
-No stereo HMD comfort, long training session or sustained UE frame-time test
-has been run on this feature. The finite local deep-water model's physical and
+These automated checks did not measure stereo HMD comfort, a long training
+session or sustained UE frame time. The finite local deep-water model's physical and
 rendering limits are described in [WATER.md](WATER.md).
 
 ## Accepted version 1.0.0
