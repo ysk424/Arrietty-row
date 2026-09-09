@@ -8,6 +8,13 @@ OK. No existing sibling project is part of this work. See [WATER.md](WATER.md)
 for the dispersive solver, offline verification and limits. Generated content,
 build outputs and private settings are local copies in the feature worktree.
 
+Acceptance clarification: the rider said the validation PNG looks promising,
+but explicitly stated that integration into main comes AFTER a real-device
+test and must not happen yet. That test must use the feature worktree. Do not
+treat image feedback or completion of a test as merge authorization; wait for
+the rider's explicit integration instruction after reviewing the test results.
+Japanese explanation and test instructions: [WATER.ja.md](WATER.ja.md).
+
 2026-09-09. User authorized an independent public MIT `ysk424/Arrietty-row`.
 UE 5.8 and C++; do not change existing Arrietty-UE58 or Secret-World projects.
 

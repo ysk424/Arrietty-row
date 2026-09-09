@@ -1,5 +1,7 @@
 # Kelvin wake development
 
+日本語の説明・実機確認手順: [WATER.ja.md](WATER.ja.md)
+
 This feature lives on `feat/kelvin-wake` in a separate Git worktree. The rider's
 accepted v1.0.0 on `main` remains the training version until explicit acceptance
 and integration. Do not regenerate assets or build this feature in the training

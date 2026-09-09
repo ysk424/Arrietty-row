@@ -6,6 +6,8 @@ center, and a Bluetooth heart-rate monitor.
 
 日本語の操作手順: [USAGE.ja.md](docs/USAGE.ja.md)
 
+ケルビン波の実装・実機確認・統合の手順: [WATER.ja.md](docs/WATER.ja.md)
+
 The application code is MIT licensed. Unreal Engine, the separately prepared
 Lake Bled scenery, and downloaded OpenVR SDK retain their own licenses.
 Version **1.0.0** was accepted by the rider on **2026-09-09**, with positive
