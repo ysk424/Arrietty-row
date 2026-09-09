@@ -10,6 +10,7 @@
 ARowWater::ARowWater() {
     Patch=CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("LocalWaveSurface")); RootComponent=Patch;
     Patch->SetCollisionEnabled(ECollisionEnabled::NoCollision); Patch->SetCastShadow(false);
+    Patch->SetBoundsScale(1.1f);
 }
 void ARowWater::BeginPlay() {
     Super::BeginPlay();
@@ -37,43 +38,64 @@ void ARowWater::BeginPlay() {
     Patch->CreateMeshSection_LinearColor(0,v,tri,n,uv,{}, {},false);
     Patch->SetMaterial(0,LocalMaterial);
     Upload();
-    UE_LOG(LogTemp,Display,TEXT("ROW_WATER_READY far_actors=%d local_triangles=%d field=256"),waterActors,tri.Num()/3);
+    UE_LOG(LogTemp,Display,TEXT("ROW_WATER_READY far_actors=%d local_triangles=%d field=256 kelvin=deep_water_fft hz=30"),waterActors,tri.Num()/3);
 }
 void ARowWater::UpdateBoat(FVector pos,float heading,float speed,float drive,float dt) {
     if(!LocalMaterial) return;
     const double x=pos.X*.01,y=pos.Y*.01;
-    Waves.center(x,y); SetActorLocation(FVector(pos.X,pos.Y,0));
+    static_assert(row::Waves::N==row::KelvinWake::N && row::Waves::Cell==row::KelvinWake::Cell);
+    Waves.center(x,y); Kelvin.center(x,y); SetActorLocation(FVector(pos.X,pos.Y,0));
     for(auto m:{LocalMaterial,DistantMaterial}) {
         m->SetVectorParameterValue(TEXT("Boat"),FLinearColor(pos.X,pos.Y,0,0));
         m->SetVectorParameterValue(TEXT("BoatDirection"),FLinearColor(std::cos(heading),std::sin(heading),0,0));
-        m->SetVectorParameterValue(TEXT("FieldOrigin"),FLinearColor(Waves.originX*100,Waves.originY*100,6400,0));
     }
     const double fx=std::cos(heading),fy=std::sin(heading),rx=-fy,ry=fx;
-    // Bow/stern pressure points, deposited in world space, retain curved wakes.
+    // Hull gravity waves use deep-water dispersion; the short-range layer below
+    // supplies oar ripples and bubbles only (no competing constant-speed bow V).
     WakeTime+=dt;
     if(WakeTime>=.08 && speed>.12) {
         WakeTime=0; const float strength=FMath::Clamp(speed/3.f,0.f,1.f);
-        Waves.disturb(x+fx*2,y+fy*2,.0025f*strength,.40f,.008f*strength);
+        Waves.disturb(x+fx*2,y+fy*2,0,.40f,.008f*strength);
         for(int side:{-1,1}) Waves.disturb(x-fx*1.8+rx*.45*side,y-fy*1.8+ry*.45*side,
-            .0025f*strength,.40f,.025f*strength);
+            0,.40f,.025f*strength);
     }
     if(drive>.35 && !WasDriving) {
-        for(int side:{-1,1}) Waves.disturb(x+rx*1.9,y+ry*1.9,.009f,.34f,.5f);
+        for(int side:{-1,1}) Waves.disturb(x+rx*1.9*side,y+ry*1.9*side,.009f,.34f,.5f);
         WasDriving=true;
     } else if(drive<.08) WasDriving=false;
     Accumulator+=FMath::Min(dt,.1f);
     while(Accumulator>=row::Waves::Step) { Waves.tick(); Accumulator-=row::Waves::Step; }
+    if(!HaveBoat || std::hypot(x-PreviousX,y-PreviousY)>8) {
+        PreviousX=x; PreviousY=y; PreviousHeading=heading; PreviousSpeed=0;
+        KelvinAccumulator=0; HaveBoat=true;
+    }
+    const double frame=FMath::Clamp(double(dt),0.,.1);
+    KelvinAccumulator+=frame;
+    while(KelvinAccumulator>=row::KelvinWake::Step) {
+        // Sample the travelled segment near the middle of each fixed step.
+        const double blend=frame>0?std::clamp((frame-KelvinAccumulator+row::KelvinWake::Step*.5)/frame,0.,1.):1.;
+        const double turn=std::atan2(std::sin(heading-PreviousHeading),std::cos(heading-PreviousHeading));
+        Kelvin.tick(PreviousX+(x-PreviousX)*blend,PreviousY+(y-PreviousY)*blend,
+            PreviousHeading+turn*blend,speed>0?float(PreviousSpeed+(speed-PreviousSpeed)*blend):0.f);
+        KelvinAccumulator-=row::KelvinWake::Step;
+    }
+    PreviousX=x; PreviousY=y; PreviousHeading=heading; PreviousSpeed=speed;
     UploadTime+=dt; if(UploadTime>=1./30.) { UploadTime=0; Upload(); }
 }
 void ARowWater::Upload() {
     if(!Field) return;
     constexpr int N=row::Waves::N;
+    // Keep the texture's world-space origin paired with this upload; changing
+    // it between 30 Hz uploads makes an otherwise stationary wake judder.
+    for(auto m:{LocalMaterial,DistantMaterial})
+        m->SetVectorParameterValue(TEXT("FieldOrigin"),FLinearColor(Waves.originX*100,Waves.originY*100,6400,0));
+    auto height=[&](int k) { return Waves.height[k]+Kelvin.height[k]; };
     auto pixels=new FFloat16Color[N*N];
     for(int y=0;y<N;++y) for(int x=0;x<N;++x) {
         const int k=y*N+x;
-        const float dx=(Waves.height[y*N+FMath::Min(x+1,N-1)]-Waves.height[y*N+FMath::Max(x-1,0)])/(2*row::Waves::Cell);
-        const float dy=(Waves.height[FMath::Min(y+1,N-1)*N+x]-Waves.height[FMath::Max(y-1,0)*N+x])/(2*row::Waves::Cell);
-        pixels[k]=FFloat16Color(FLinearColor(Waves.height[k],dx,dy,Waves.foam[k]));
+        const float dx=(height(y*N+FMath::Min(x+1,N-1))-height(y*N+FMath::Max(x-1,0)))/(2*row::Waves::Cell);
+        const float dy=(height(FMath::Min(y+1,N-1)*N+x)-height(FMath::Max(y-1,0)*N+x))/(2*row::Waves::Cell);
+        pixels[k]=FFloat16Color(FLinearColor(height(k),dx,dy,Waves.foam[k]));
     }
     auto region=new FUpdateTextureRegion2D(0,0,0,0,N,N);
     Field->UpdateTextureRegions(0,1,region,N*sizeof(FFloat16Color),sizeof(FFloat16Color),

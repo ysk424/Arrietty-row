@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "RowWaves.h"
+#include "RowKelvin.h"
 #include "RowWater.generated.h"
 class UProceduralMeshComponent;
 class UMaterialInstanceDynamic;
@@ -20,6 +21,9 @@ private:
     UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> LocalMaterial;
     UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> DistantMaterial;
     row::Waves Waves;
-    double Accumulator=0,UploadTime=0,WakeTime=0;
-    bool WasDriving=false;
+    row::KelvinWake Kelvin;
+    double Accumulator=0,KelvinAccumulator=0,UploadTime=0,WakeTime=0;
+    double PreviousX=0,PreviousY=0,PreviousHeading=0;
+    float PreviousSpeed=0;
+    bool WasDriving=false,HaveBoat=false;
 };

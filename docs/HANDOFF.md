@@ -1,5 +1,13 @@
 # Handoff
 
+2026-09-10 development: the rider successfully trained again on the accepted
+version and requested new features in a separate worktree, with integration only
+after acceptance. Kelvin wake work is on `feat/kelvin-wake`, based on `f45ba55`.
+Keep `main` available for training; do not merge this feature without the rider's
+OK. No existing sibling project is part of this work. See [WATER.md](WATER.md)
+for the dispersive solver, offline verification and limits. Generated content,
+build outputs and private settings are local copies in the feature worktree.
+
 2026-09-09. User authorized an independent public MIT `ysk424/Arrietty-row`.
 UE 5.8 and C++; do not change existing Arrietty-UE58 or Secret-World projects.
 

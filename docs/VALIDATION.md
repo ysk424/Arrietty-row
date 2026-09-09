@@ -1,5 +1,65 @@
 # Validation
 
+## Kelvin feature worktree, 2026-09-10
+
+This is development evidence for `feat/kelvin-wake`, not approval to replace the
+accepted training version. The rider reported another successful training run
+on that version and requested isolated worktree development until acceptance.
+The original checkout remains at `f45ba55`; no merge or push was performed.
+
+- MSVC `/W4 /WX /O2`: **76 existing core checks and 28 water checks pass**.
+  The water checks cover two independent Fourier-mode dispersion oracles, no
+  new wake at rest, invalid speed, steady motion at 2 and 3 m/s, bilateral
+  symmetry, bounded amplitude, reference-level drift, exact world-space sample
+  translation, stopping/decay, teleport clearing both state fields, turns, and
+  export of synthetic evidence. Evidence: `logs/native-water.log`.
+- Measured transverse wavelengths in exported C++ fields: **2.50 m** at 2 m/s
+  (theory 2.562 m), **5.875 m** at 3 m/s (theory 5.764 m). `plot_water.py` also
+  checks mean-square displacement outside the bow's theoretical wedge: the
+  26–55 degree sector has **0.077% / 0.083%** of the within-21-degree sector's
+  mean-square displacement, sampled 9–23 m astern. This checks confinement;
+  it is not an exact measurement of the cusp angle. Evidence:
+  `artifacts/water/measurements.json` and `kelvin-validation.png` in that folder.
+- After 40 s of straight motion, interior peak displacements are **4.32 cm /
+  6.94 cm** for those speeds, with mirror differences below 0.003 mm. Thirty
+  seconds after removing pressure, integrated squared height is **2.65% /
+  1.67%** of its moving value. This is a displacement measure, not full physical
+  wave energy. The 40 s turning fixture retains a curved wake history.
+- The 5,400 timed fixed steps average **1.54 ms per 30 Hz update** on this PC,
+  including domain recentering and test bookkeeping. This is a standalone CPU
+  measurement, not UE frame time, GPU cost, a worst-case bound or VR performance.
+- UE **5.8.2 Editor and Game Development targets compile**, without C++ warnings
+  in the final build logs: `logs/ue-build.log`, `logs/ue-game-build.log`.
+- `tools/test_setup.ps1` passes the production UE control regression for extra
+  Enter, setup completion, pause, stop/retry and panel attachment. Evidence:
+  `logs/setup-controls-20260910-065743.log`. No new physical keypad/USB test or
+  BLE/Tracker exercise was performed for this feature.
+- Saved-map verification still reports **312 scenery mesh actors / 961,237
+  source triangles**, native atmosphere/sun/sky/fog, and water reference
+  **Z=0 cm**. Evidence: `logs/content-validation.json` and
+  `logs/ue-verify-content.log`. The worktree uses its own local content copy.
+- Actual D3D12 UE **1600 x 1000** synthetic previews render the combined field,
+  hull, oars and foam during straight motion and turns. The elevated aft view
+  captures after 52 seconds with a running session; both runs close normally.
+  The water log identifies `kelvin=deep_water_fft hz=30`. Evidence:
+  `artifacts/row-kelvin-straight.png`, `artifacts/row-kelvin-turn.png` and their
+  corresponding `logs/*.log`. Wake contrast depends strongly on view and sun
+  reflection; the field plot isolates the physical wave pattern from wind and
+  shading. These captures do not measure the rendered envelope angle or imply
+  rider acceptance of its appearance.
+- Normal first-person and chase previews also close normally after capturing a
+  running synthetic session at **10.15 m**, with the four metrics, missing HR
+  shown as `--`, the +/-8 cm steering gauge and the existing distant scenery.
+  Evidence: `artifacts/row-view.png`, `artifacts/row-wake.png` and corresponding
+  logs. The copied map and water-material asset hashes match the training
+  checkout; no generated scenery or material was changed.
+
+No stereo HMD comfort, long training session or sustained UE frame-time test
+has been run on this feature. The finite local deep-water model's physical and
+rendering limits are described in [WATER.md](WATER.md).
+
+## Accepted version 1.0.0
+
 Version **1.0.0** was accepted as complete by the user on **2026-09-09**.
 The user specifically praised the feeling of moving forward while rowing.
 This records rider acceptance alongside the measured checks below.

@@ -59,9 +59,15 @@ not a calibrated ergometer. Bluetooth never changes the machine's resistance.
 
 The mean water plane is **Z=0 cm**. Wind ripples use five world-space normal
 waves; a dense local surface adds small geometric lake waves. A moving 64 m
-height field propagates bow/stern and oar impulses, leaving curved wakes and
-decaying foam in world space. The HMD horizon stays level while the hull moves.
+height field combines dispersive bow/stern waves with oar ripples, leaving curved
+wakes and decaying foam in world space. The HMD horizon stays level while the hull moves.
 The approved Lake Bled mesh mountains and UE atmosphere form the distant view.
+
+The `feat/kelvin-wake` worktree adds a deep-water dispersive bow/stern solver:
+transverse waves, divergent waves and curved wake history. Oar ripples and foam
+remain separate. See [Kelvin wake development](docs/WATER.md) for the model,
+offline previews and checks. This feature is not yet merged into the accepted
+training version on `main`.
 
 ## Development
 

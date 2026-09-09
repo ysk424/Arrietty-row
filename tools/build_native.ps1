@@ -9,6 +9,7 @@ $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.
 if(-not $vs) { throw 'MSVC x64 tools required' }
 $setup=Join-Path $vs 'VC/Auxiliary/Build/vcvars64.bat'
 $line='cl /nologo /std:c++20 /EHsc /W4 /WX /O2 /I "'+(Join-Path $repo 'Source')+'" "'+(Join-Path $repo 'tests/core_tests.cpp')+'" /Fe:core_tests.exe'
+$waterLine='cl /nologo /std:c++20 /EHsc /W4 /WX /O2 /I "'+(Join-Path $repo 'Source')+'" "'+(Join-Path $repo 'tests/water_tests.cpp')+'" /Fe:water_tests.exe'
 if($Devices) {
     & (Join-Path $PSScriptRoot 'bootstrap.ps1')
     $sdk=Join-Path $repo 'ThirdParty/OpenVR'
@@ -16,7 +17,16 @@ if($Devices) {
     Copy-Item -LiteralPath (Join-Path $sdk 'bin/win64/openvr_api.dll') -Destination $out -Force
 }
 $bat=Join-Path $out 'build.cmd'
-@('@echo off',('call "'+$setup+'" >nul'),$line,'exit /b %errorlevel%') | Set-Content -LiteralPath $bat -Encoding ascii
+$commands=@('@echo off',('call "'+$setup+'" >nul'),$line,'if errorlevel 1 exit /b %errorlevel%')
+if(-not $Devices) { $commands+=$waterLine }
+$commands+='exit /b %errorlevel%'
+$commands | Set-Content -LiteralPath $bat -Encoding ascii
 Push-Location $out
-try { & $bat; if($LASTEXITCODE -ne 0) { throw 'Native compilation failed' }; if(-not $Devices) { & './core_tests.exe'; if($LASTEXITCODE -ne 0) { throw 'Core tests failed' } } }
+try {
+    & $bat; if($LASTEXITCODE -ne 0) { throw 'Native compilation failed' }
+    if(-not $Devices) {
+        & './core_tests.exe'; if($LASTEXITCODE -ne 0) { throw 'Core tests failed' }
+        & './water_tests.exe' (Join-Path $repo 'artifacts/water'); if($LASTEXITCODE -ne 0) { throw 'Water tests failed' }
+    }
+}
 finally { Pop-Location }

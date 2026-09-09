@@ -90,6 +90,11 @@ void ARowPawn::BeginPlay() {
     if(Offline) { Camera->bLockToHmd=false; Camera->SetRelativeLocation(FVector(0,0,100)); Camera->SetRelativeRotation(FRotator(-7,0,0)); }
     else UHeadMountedDisplayFunctionLibrary::SetTrackingOrigin(EHMDTrackingOrigin::LocalFloor);
     if(Chase) { Camera->SetRelativeLocation(FVector(-440,-440,310)); Camera->SetRelativeRotation(FRotator(-24,45,0)); Camera->SetFieldOfView(75); }
+    if(Offline && FParse::Param(FCommandLine::Get(),TEXT("RowWaterView"))) {
+        Chase=true; // Preview camera cannot become the calibrated travel heading.
+        Camera->SetRelativeLocation(FVector(900,0,1100));
+        Camera->SetRelativeRotation(FRotator(-35,180,0)); Camera->SetFieldOfView(75);
+    }
     if(!Offline) {
         FString configPath=FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()/TEXT("../../settings.local.json"));
         FParse::Value(FCommandLine::Get(),TEXT("RowSettings="),configPath);
@@ -129,7 +134,8 @@ row::Input ARowPawn::ReadInput() const {
         const bool moving=(calibrating && Calibration.phase==row::CalibrationPhase::Axis) || (!calibrating && Demo);
         const double bar=moving?(phase<1?.38*std::cos(row::Pi*phase):-.38*std::cos(row::Pi*(phase-1)/1.8)):OfflineBarRest;
         in.bar={{bar,0,.65},{1,0,0},true,in.now};
-        in.head={{0,Demo && !calibrating?.18*std::sin(SimTime*.07):0,1},{1,0,0},true,in.now};
+        const bool straight=FParse::Param(FCommandLine::Get(),TEXT("RowDemoStraight"));
+        in.head={{0,Demo && !calibrating && !straight?.18*std::sin(SimTime*.07):0,1},{1,0,0},true,in.now};
         if(Demo) in.telemetry.power.set(95,in.now);
     } else {
         // OpenVR head provides a common physical room frame for lean/bar input;
