@@ -1,0 +1,16 @@
+/settings.local.json
+/.venv/
+/logs/
+/artifacts/
+/ThirdParty/
+**/Binaries/
+**/Intermediate/
+**/Saved/
+**/DerivedDataCache/
+**/Content/
+/.vs/
+*.sln
+*.suo
+*.VC.db
+__pycache__/
+*.pyc

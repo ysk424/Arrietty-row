@@ -1,0 +1,48 @@
+#pragma once
+#include "CoreMinimal.h"
+#include "GameFramework/Pawn.h"
+#include "RowDevices.h"
+#include "RowPawn.generated.h"
+class UCameraComponent;
+class UWidgetComponent;
+class URowPanel;
+class UProceduralMeshComponent;
+class UStaticMeshComponent;
+class ARowWater;
+UCLASS()
+class ARRIETTYROW_API ARowPawn:public APawn {
+    GENERATED_BODY()
+public:
+    ARowPawn();
+    virtual void BeginPlay() override;
+    virtual void Tick(float DeltaSeconds) override;
+    virtual void EndPlay(const EEndPlayReason::Type Reason) override;
+    virtual void SetupPlayerInputComponent(UInputComponent* Input) override;
+private:
+    void Toggle();
+    void Stop();
+    void BuildBoat();
+    void Record(const TCHAR* Event);
+    row::Input ReadInput() const;
+    UPROPERTY() TObjectPtr<USceneComponent> Tracking;
+    UPROPERTY() TObjectPtr<USceneComponent> BoatRoot;
+    UPROPERTY() TObjectPtr<UCameraComponent> Camera;
+    UPROPERTY() TObjectPtr<UWidgetComponent> Instruments;
+    UPROPERTY() TObjectPtr<URowPanel> Panel;
+    UPROPERTY() TObjectPtr<UProceduralMeshComponent> Hull;
+    UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> Oars;
+    UPROPERTY() TObjectPtr<ARowWater> Water;
+    UPROPERTY() TObjectPtr<UStaticMesh> Cube;
+    std::unique_ptr<row::Devices> Devices;
+    row::DeviceSnapshot Snapshot;
+    row::Model Model;
+    FTransform Home;
+    FString SessionFile,Notice;
+    bool Offline=false,Demo=false,DemoStarted=false;
+    bool Chase=false;
+    double Began=0,NextRecord=0,SimTime=0,QuitAfter=0;
+    float OarBlend=0;
+    double ScreenshotAt=0;
+    FString ScreenshotPath;
+    uint64 ValidBarFrames=0;
+};
