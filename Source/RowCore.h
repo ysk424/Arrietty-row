@@ -60,12 +60,14 @@ inline Vec3 operator-(Vec3 a,Vec3 b) { return {a.x-b.x,a.y-b.y,a.z-b.z}; }
 inline double dot(Vec3 a,Vec3 b) { return a.x*b.x+a.y*b.y+a.z*b.z; }
 inline bool finite(Vec3 a) { return std::isfinite(a.x)&&std::isfinite(a.y)&&std::isfinite(a.z); }
 struct Pose { Vec3 position,forward{1,0,0}; bool valid=false; double received=-1e9; };
-enum class State { Ready, Running, Paused, TrackingLost };
+enum class State { Ready, Running, Paused, TrackingLost, Calibrating };
 struct Input { Pose bar,head; Telemetry telemetry; double now=0; };
+struct SteeringFrame { Vec3 forward{1,0,0},center; bool valid=false; };
 struct Model {
+    static constexpr double StraightMargin=.08,FullLean=.26;
     State state=State::Ready;
     double speed=0,distance=0,elapsed=0,heading=0,yawRate=0;
-    double barPosition=0,barVelocity=0,lean=0,drive=0,power=0;
+    double barPosition=0,barVelocity=0,lean=0,steer=0,drive=0,power=0;
     unsigned strokes=0;
     bool usingBt=false;
     Vec3 forward{1,0,0},right{0,1,0},neutralHead;
@@ -76,19 +78,21 @@ struct Model {
             && finite(in.head.forward) && in.now-in.bar.received<.25 && in.now>=in.bar.received
             && in.now-in.head.received<.25 && in.now>=in.head.received;
     }
-    bool start(const Input& in) {
-        if(!tracking(in)) return false;
-        // Recalibrate neutral on resume, preserving the existing world heading.
-        auto f=in.head.forward; const double len=std::hypot(f.x,f.y);
+    bool start(const Input& in,const SteeringFrame& frame) {
+        if(!tracking(in) || !frame.valid || !finite(frame.forward) || !finite(frame.center)) return false;
+        // Only a measured machine axis and averaged neutral may start a session.
+        // The caller supplies world heading separately; gaze never defines steering.
+        auto f=frame.forward; const double len=std::hypot(f.x,f.y);
         if(len<.2) return false;
         forward={f.x/len,f.y/len,0}; right={-forward.y,forward.x,0};
-        neutralHead=in.head.position;
+        neutralHead=frame.center;
         previousBar=dot(in.bar.position,forward);
         barPosition=previousBar; extreme=previousBar;
-        barVelocity=lean=drive=power=yawRate=0; initialized=true;
+        barVelocity=lean=steer=drive=power=yawRate=0; initialized=true;
         pullTravel=recoveryTravel=0; pulling=false; armed=true; state=State::Running; return true;
     }
     void pause() { if(state==State::Running) state=State::Paused; speed=drive=power=yawRate=0; }
+    void calibrate() { pause(); state=State::Calibrating; lean=steer=0; }
     void reset() { *this=Model{}; }
     // <=20ms substeps in caller; long frame gaps stop rather than launch the boat.
     double tick(const Input& in,double dt) {
@@ -104,9 +108,13 @@ struct Model {
         barVelocity+=(raw-barVelocity)*(1-std::exp(-dt/.06));
         const double lateral=dot(in.head.position-neutralHead,right);
         lean+=(std::clamp(lateral,-.35,.35)-lean)*(1-std::exp(-dt/.28));
-        const double steer=std::copysign(std::clamp((std::abs(lean)-.045)/.18,0.,1.),lean);
+        const double amount=std::clamp((std::abs(lean)-StraightMargin)/(FullLean-StraightMargin),0.,1.);
+        steer=std::copysign(amount*amount,lean); // Gentle onset just outside the straight zone.
         const double targetYaw=steer*.20*std::clamp(speed/1.2,0.,1.);
-        yawRate+=(targetYaw-yawRate)*(1-std::exp(-dt/.5));
+        // Returning to the straight zone removes steering immediately. Ramp into
+        // turns gently, without a lingering turn after the center display lights.
+        if(amount==0) yawRate=0;
+        else yawRate+=(targetYaw-yawRate)*(1-std::exp(-dt/.35));
         heading+=yawRate*dt;
         if(barVelocity>.10) {
             recoveryTravel+=std::max(0.,raw*dt);

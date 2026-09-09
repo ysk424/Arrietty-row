@@ -41,9 +41,8 @@ cppwinrt include paths are explicit; OpenVR loads from the staged binary path
 or the pinned local SDK before worker threads start. No global Engine SDK copy
 is needed. The native probe is tools/probe.ps1.
 
-Known refinement areas: physical room forward is calibrated from HMD yaw at
-start, so look straight along the machine; verify seated eye placement and
-lean sensitivity in HMD. Core stroke/power model is intentionally tunable, not
+Known refinement areas: verify seated eye placement and lean sensitivity in
+HMD. Core stroke/power model is intentionally tunable, not
 a measured transfer function. Water and shoreline behavior require actual
 rendering and user feedback before treating this as an accepted daily application.
 
@@ -51,8 +50,8 @@ Follow-up: the main keyboard Enter started a live UE session, but the rider's
 keypad did not. UE maps both Enter variants to one key. Session keys now run in
 a game-window-only Slate preprocessor before widget focus, suppress repeats,
 and log ROW_KEY / ROW_CONTROL without device identities or health values.
-The instrument widget cannot take keyboard focus. Nine standard Windows key
-message actions pass; physical keypad acceptance remains pending. Do not claim
+The instrument widget cannot take keyboard focus. The user subsequently
+confirmed repeated physical keypad operation. Do not claim
 a USB hardware mapping error was established. Live UE C++ BT/HR reception and
 boat movement are now verified; see updated VALIDATION.md.
 
@@ -60,3 +59,11 @@ That live session also exposed a shutdown crash in SteamVR/Vive OpenXR layers:
 the pose worker released OpenVR before UE destroyed its OpenXR HMD. UE now
 defers that release until module shutdown, after joining all device workers and
 Engine PreExit/HMD teardown. The standalone probe retains immediate shutdown.
+
+The user then reported unintended left turning and approved all four steering
+changes: delayed averaged neutral, machine axis measured from bar strokes,
+8 cm margin with gentle onset, and a visible left/center/right gauge. Implemented
+in RowCalibration.h, RowCore.h and the UE pawn/panel. Start/resume now runs setup
+before the boat moves. See STEERING.md for exact thresholds and failure behavior.
+The physical center/axis stay fixed during a run. Fresh local CSV includes lean,
+steering and yaw rate; never publish the user's exercise/pose samples.

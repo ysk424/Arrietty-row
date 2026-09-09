@@ -24,13 +24,19 @@ the rider's acceptance. See [validation](docs/VALIDATION.md) for measured result
 5. Set SteamVR as the active OpenXR runtime, start SteamVR and the devices,
    then run `./tools/run.ps1`. Use `./tools/run.ps1 -Demo` without hardware.
 
-Sit normally, look along the rowing machine, extend the handle, and press
-**Enter** on the keypad to start. Enter also pauses and resumes. **Numpad 0**
+Press **Enter** on the keypad, return to your normal posture during the two-second
+countdown, hold still for one second, then move the handle straight out and back
+twice. The boat starts automatically after measuring the machine axis. Setup
+does not count as exercise or move the boat. Enter also pauses and resumes
+(with fresh calibration), or cancels an in-progress setup. **Numpad 0**
 stops, saves the session, and returns the boat to its starting position.
 Insert (Num Lock off) and Esc also stop. Lean sideways to turn; head rotation
 alone does not steer. After tracking loss, restore tracking and press Enter.
 Both keypad and main Enter work in the active game window. Session keys are
 handled before widget focus; holding a key causes only one action.
+The averaged neutral has an **8 cm straight zone on each side** and a gentle
+turn response outside it. A live LEFT / CENTER / RIGHT gauge shows the same
+filtered position used for steering. See [steering](docs/STEERING.md).
 
 The panel shows **distance, active time, speed, and heart rate**. Distance and
 speed describe the virtual boat's movement. The CSV separately records machine

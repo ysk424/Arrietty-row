@@ -71,7 +71,7 @@ ARowPawn::ARowPawn() {
     Hull->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Instruments=CreateDefaultSubobject<UWidgetComponent>(TEXT("RowInstruments")); Instruments->SetupAttachment(RootComponent);
     Instruments->SetWidgetSpace(EWidgetSpace::World); Instruments->SetWidgetClass(URowPanel::StaticClass());
-    Instruments->SetDrawSize(FVector2D(1000,300)); Instruments->SetRelativeLocation(FVector(115,0,53));
+    Instruments->SetDrawSize(FVector2D(1000,360)); Instruments->SetRelativeLocation(FVector(115,0,53));
     Instruments->SetRelativeRotation(FRotator(22,180,0)); Instruments->SetRelativeScale3D(FVector(.075));
     Instruments->SetTwoSided(true); Instruments->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Instruments->SetCastShadow(false); Instruments->SetWindowFocusable(false);
@@ -124,10 +124,12 @@ void ARowPawn::SetupPlayerInputComponent(UInputComponent* input) {
 row::Input ARowPawn::ReadInput() const {
     row::Input in; in.now=row::Devices::seconds(); in.bar=Snapshot.bar; in.head=Snapshot.head; in.telemetry=Snapshot.telemetry;
     if(Offline) {
-        const double phase=std::fmod(SimTime,2.8);
-        const double bar=Demo?(phase<1?.38*std::cos(row::Pi*phase):-.38*std::cos(row::Pi*(phase-1)/1.8)):.38;
+        const bool calibrating=Model.state==row::State::Calibrating;
+        const double phase=std::fmod(calibrating?CalibrationMotionTime:SimTime,2.8);
+        const bool moving=(calibrating && Calibration.phase==row::CalibrationPhase::Axis) || (!calibrating && Demo);
+        const double bar=moving?(phase<1?.38*std::cos(row::Pi*phase):-.38*std::cos(row::Pi*(phase-1)/1.8)):OfflineBarRest;
         in.bar={{bar,0,.65},{1,0,0},true,in.now};
-        in.head={{0,Demo?.11*std::sin(SimTime*.07):0,1},{1,0,0},true,in.now};
+        in.head={{0,Demo && !calibrating?.18*std::sin(SimTime*.07):0,1},{1,0,0},true,in.now};
         if(Demo) in.telemetry.power.set(95,in.now);
     } else {
         // OpenVR head provides a common physical room frame for lean/bar input;
@@ -142,17 +144,36 @@ void ARowPawn::Toggle() {
         Model.pause(); Notice.Empty(); Record(TEXT("pause"));
         UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=pause")); return;
     }
+    if(Model.state==row::State::Calibrating) {
+        Model.state=row::State::Paused; Calibration={}; Notice=TEXT("SETUP PAUSED / NUM ENTER");
+        UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=calibration_cancel")); return;
+    }
     const auto in=ReadInput();
-    if(!Model.start(in)) {
+    if(!Calibration.begin(in)) {
         Notice=TEXT("Enter received / check HMD + bar");
         UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=start_blocked head_valid=%d bar_valid=%d"),in.head.valid,in.bar.valid);
         return;
     }
-    // Latch the horizontal view the rider actually sees; do not impose room yaw.
-    Model.heading=FMath::DegreesToRadians(Chase?GetActorRotation().Yaw:Camera->GetComponentRotation().Yaw);
+    Model.calibrate(); CalibrationMotionTime=0; Notice.Empty(); Record(TEXT("calibration_begin"));
+    UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=calibration_begin"));
+}
+void ARowPawn::FinishCalibration(const row::Input& in) {
+    if(!Model.start(in,Calibration.frame)) {
+        Model.state=row::State::TrackingLost; Notice=TEXT("SETUP LOST / NUM ENTER"); return;
+    }
+    if(Offline) { OfflineBarRest=in.bar.position.x; SimTime=CalibrationMotionTime; }
+    // Convert the measured physical machine axis into the actual rendered world.
+    // Subtract current physical head yaw so looking sideways cannot skew it.
+    const double headYaw=FMath::RadiansToDegrees(std::atan2(in.head.forward.y,in.head.forward.x));
+    const double axisYaw=FMath::RadiansToDegrees(std::atan2(Model.forward.y,Model.forward.x));
+    Model.heading=FMath::DegreesToRadians(Chase?GetActorRotation().Yaw:
+        Camera->GetComponentRotation().Yaw+FMath::FindDeltaAngleDegrees(headYaw,axisYaw));
     if(!Offline) {
         const FVector roomEye=Camera->GetRelativeLocation();
-        Tracking->SetRelativeLocation(FVector(-roomEye.X,-roomEye.Y,100-roomEye.Z));
+        const auto offset=in.head.position-Calibration.frame.center;
+        const FRotator roomRotation(0,Camera->GetRelativeRotation().Yaw-headYaw,0);
+        const FVector fromNeutral=roomRotation.RotateVector(FVector(offset.x,offset.y,offset.z)*100);
+        Tracking->SetRelativeLocation(fromNeutral-roomEye+FVector(0,0,100));
     }
     const FRotator facing(0,FMath::RadiansToDegrees(Model.heading),0);
     BoatRoot->SetWorldRotation(facing); Instruments->SetWorldRotation(FRotator(22,facing.Yaw+180,0));
@@ -160,14 +181,14 @@ void ARowPawn::Toggle() {
     if(SessionFile.IsEmpty()) {
         const FString dir=FPaths::ProjectSavedDir()/TEXT("Sessions"); IFileManager::Get().MakeDirectory(*dir,true);
         SessionFile=dir/FString::Printf(TEXT("row-%s.csv"),*FDateTime::UtcNow().ToString(TEXT("%Y%m%dT%H%M%S%ss")));
-        FFileHelper::SaveStringToFile(TEXT("utc,event,active_s,distance_m,speed_kmh,heart_bpm,strokes,source,machine_distance_m,machine_elapsed_s,machine_speed_kmh,power_w\n"),*SessionFile);
+        FFileHelper::SaveStringToFile(TEXT("utc,event,active_s,distance_m,speed_kmh,heart_bpm,strokes,source,machine_distance_m,machine_elapsed_s,machine_speed_kmh,power_w,lean_cm,steer,yaw_deg_s\n"),*SessionFile);
     }
     Notice.Empty(); Record(TEXT("start"));
     UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=start"));
 }
 void ARowPawn::Stop() {
     if(!SessionFile.IsEmpty()) Record(TEXT("stop")); SessionFile.Empty();
-    Model.reset(); SimTime=0; DemoStarted=true; SetActorTransform(Home);
+    Model.reset(); Calibration={}; CalibrationMotionTime=0; SimTime=0; DemoStarted=true; SetActorTransform(Home);
     Model.heading=FMath::DegreesToRadians(Home.Rotator().Yaw);
     BoatRoot->SetRelativeRotation(FRotator::ZeroRotator);
     Instruments->SetRelativeLocation(FVector(115,0,53)); Instruments->SetRelativeRotation(FRotator(22,180,0));
@@ -182,8 +203,20 @@ void ARowPawn::Tick(float dt) {
     if(Snapshot.bar.valid) ++ValidBarFrames;
     if(Demo && !DemoStarted && row::Devices::seconds()-Began>8) { Toggle(); DemoStarted=true; }
     const auto in=ReadInput(); const auto oldState=Model.state; const double oldHeading=Model.heading;
+    if(Model.state==row::State::Calibrating) {
+        const auto oldPhase=Calibration.phase;
+        Calibration.tick(in,dt);
+        if(Calibration.phase==row::CalibrationPhase::Axis) CalibrationMotionTime+=dt;
+        if(Calibration.phase!=oldPhase) UE_LOG(LogTemp,Display,TEXT("ROW_CALIBRATION phase=%d"),int(Calibration.phase));
+        if(Calibration.phase==row::CalibrationPhase::Complete) FinishCalibration(in);
+        else if(Calibration.phase==row::CalibrationPhase::Failed) {
+            Model.state=Calibration.issue==row::CalibrationIssue::Tracking?row::State::TrackingLost:row::State::Paused;
+            Notice=Calibration.issue==row::CalibrationIssue::Tracking?TEXT("SETUP LOST / NUM ENTER"):TEXT("SETUP TIMEOUT / NUM ENTER");
+            Record(TEXT("calibration_failed"));
+        }
+    }
     // Pose derivatives use the real frame interval; a hitch invokes core watchdog.
-    const double moved=Model.tick(in,dt);
+    const double moved=oldState==row::State::Calibrating?0:Model.tick(in,dt);
     if(Model.state==row::State::Running) SimTime+=dt;
     if(oldState==row::State::Running && Model.state==row::State::TrackingLost) Record(TEXT("tracking_lost"));
     if(moved>0) {
@@ -218,6 +251,23 @@ void ARowPawn::Tick(float dt) {
         const TCHAR* state=Model.state==row::State::Running?TEXT("ROWING"):Model.state==row::State::Paused?TEXT("PAUSED"):
             Model.state==row::State::TrackingLost?TEXT("TRACKING LOST / NUM ENTER"):TEXT("READY / NUM ENTER");
         Panel->Status=Demo?TEXT("DEMO / synthetic strokes"):!Notice.IsEmpty()?Notice:state;
+        Panel->Guide=TEXT("NUM ENTER Start / Pause     NUM 0 Stop / Home     Lean left / right to steer");
+        Panel->SteeringAvailable=Calibration.frame.valid && row::Model::tracking(in) && Model.state!=row::State::Calibrating;
+        Panel->LeanCm=float((Model.state==row::State::Running?Model.lean:row::dot(in.head.position-Model.neutralHead,Model.right))*100);
+        if(Model.state==row::State::Calibrating) {
+            if(Calibration.phase==row::CalibrationPhase::Settle) {
+                Panel->Status=FString::Printf(TEXT("GET COMFORTABLE  %.1f s"),Calibration.remaining);
+                Panel->Guide=TEXT("Release the keypad. Sit in your normal centered rowing posture.");
+            } else if(Calibration.phase==row::CalibrationPhase::Center) {
+                Panel->Status=FString::Printf(TEXT("HOLD STILL  %.1f s"),Calibration.remaining);
+                Panel->Guide=TEXT("Face the machine and hold your normal posture for one quiet second.");
+            } else {
+                Panel->Status=FString::Printf(TEXT("ROW STRAIGHT  %u / 2"),Calibration.strokes);
+                Panel->Guide=Calibration.issue==row::CalibrationIssue::LookForward?TEXT("Face along the machine, then NUM ENTER twice to retry setup."):
+                    Calibration.issue==row::CalibrationIssue::KeepStraight?TEXT("Keep the bar straight. NUM ENTER twice restarts setup if needed."):
+                    TEXT("Move the bar forward and back twice. Boat stays still; rowing starts automatically.");
+            }
+        }
         Panel->Detail=FString::Printf(TEXT("%s   %.0f W   %u strokes   HR %s"),Model.usingBt?TEXT("BT power"):TEXT("Tracker estimate"),Model.power,Model.strokes,
             hr.fresh(in.now,5) && hr.value>0?TEXT("connected"):TEXT("--"));
     }
@@ -234,9 +284,10 @@ void ARowPawn::Record(const TCHAR* event) {
     auto value=[&](const row::Field& f,double scale=1.) { return f.fresh(now,5) && f.value>=0?FString::Printf(TEXT("%.3f"),f.value*scale):FString(); };
     const FString hr=Snapshot.heart.value>0?value(Snapshot.heart):FString();
     const FString speed=t.pace.fresh(now) && t.pace.value>=0?FString::Printf(TEXT("%.3f"),t.pace.value>0?1800./t.pace.value:0.):FString();
-    const FString line=FString::Printf(TEXT("%s,%s,%.3f,%.3f,%.3f,%s,%u,%s,%s,%s,%s,%s\n"),
+    const FString line=FString::Printf(TEXT("%s,%s,%.3f,%.3f,%.3f,%s,%u,%s,%s,%s,%s,%s,%.2f,%.3f,%.3f\n"),
         *FDateTime::UtcNow().ToIso8601(),event,Model.elapsed,Model.distance,Model.speed*3.6,*hr,Model.strokes,
-        Demo?TEXT("demo"):Model.usingBt?TEXT("bt"):TEXT("tracker_estimate"),*value(t.distance),*value(t.elapsed),*speed,*value(t.power));
+        Demo?TEXT("demo"):Model.usingBt?TEXT("bt"):TEXT("tracker_estimate"),*value(t.distance),*value(t.elapsed),*speed,*value(t.power),
+        Model.lean*100,Model.steer,FMath::RadiansToDegrees(Model.yawRate));
     FFileHelper::SaveStringToFile(line,*SessionFile,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM,&IFileManager::Get(),FILEWRITE_Append);
 }
 void ARowPawn::EndPlay(const EEndPlayReason::Type reason) {

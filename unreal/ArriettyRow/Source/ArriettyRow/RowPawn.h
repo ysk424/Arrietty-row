@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "RowDevices.h"
+#include "RowCalibration.h"
 #include "RowPawn.generated.h"
 class UCameraComponent;
 class UWidgetComponent;
@@ -22,6 +23,7 @@ public:
 private:
     friend class FRowKeyInput;
     void Toggle();
+    void FinishCalibration(const row::Input& Input);
     void Stop();
     void BuildBoat();
     void Record(const TCHAR* Event);
@@ -38,11 +40,14 @@ private:
     std::unique_ptr<row::Devices> Devices;
     row::DeviceSnapshot Snapshot;
     row::Model Model;
+    row::Calibration Calibration;
     FTransform Home;
     FString SessionFile,Notice;
     bool Offline=false,Demo=false,DemoStarted=false;
     bool Chase=false;
     double Began=0,NextRecord=0,SimTime=0,QuitAfter=0;
+    double CalibrationMotionTime=0;
+    double OfflineBarRest=.38;
     float OarBlend=0;
     double ScreenshotAt=0;
     FString ScreenshotPath;
