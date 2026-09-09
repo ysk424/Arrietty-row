@@ -1,5 +1,41 @@
 # Validation
 
+## Bow whitewater follow-up, 2026-09-10
+
+The rider requested whitewater at the bow that responds to boat speed. This
+change is in the same `feat/kelvin-wake` worktree and is not merged into main.
+
+- MSVC `/W4 /WX /O2`: **76 core checks and 46 water checks pass**. Added checks
+  cover zero/invalid/very low speed, increasing foam at 1/2/3 m/s, emission ahead
+  of the actual 2.3 m hull tip, left/right symmetry, heading rotation, elapsed-time
+  emission consistency, world-space persistence, stopping/decay, bounded crest,
+  unchanged oar foam/height fields, and clearing on teleport. Kelvin dispersion
+  and propagation checks also remain successful. Evidence:
+  `logs/native-bow-water.log`.
+- Final UE **5.8.2 Editor and Game Development targets compile**, with no C++
+  warnings in `logs/ue-bow-build.log` and `logs/ue-bow-game-build.log`.
+- The production UE setup/control test passes on rerun without a runtime code
+  change: `logs/setup-controls-20260910-080048.log`. The first attempt ended
+  after the automation controller dispatched the test, with no completion or
+  control-handler records (`setup-controls-20260910-075843.log`). Its cause was
+  not established; do not count that first attempt as a pass. The test launcher
+  now includes the process exit code in future failure messages.
+- Actual **1600 x 1000 D3D12** synthetic straight-rowing captures show whitewater
+  outside the bow and along its shoulders. The dedicated bow foam channel fades
+  faster than the existing oar foam, keeping the new whitewater concentrated near
+  the bow. First-person and chase captures both record a running session at
+  **10.15 m** and exit normally. The log identifies `bow_whitewater=speed`.
+  Evidence: `artifacts/row-bow-view.png`, `artifacts/row-bow-chase.png` and the
+  corresponding `logs/row-bow-*.log`.
+- The same copied water material displays the combined foam and crest field;
+  generated material/scenery assets were not rebuilt for this change. The
+  additional crest contributes to both height and its normal derivatives.
+
+These checks use synthetic inputs. Bow whitewater is an artistic effect, with
+no particle/breaking-fluid simulation. Hardware/HMD appearance, sustained frame
+time and training comfort still require testing in the worktree. They do not
+constitute rider acceptance or permission to integrate into main.
+
 ## Kelvin feature worktree, 2026-09-10
 
 This is development evidence for `feat/kelvin-wake`, not approval to replace the

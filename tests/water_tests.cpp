@@ -1,4 +1,5 @@
 #include "RowKelvin.h"
+#include "RowBowWhitewater.h"
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -31,6 +32,47 @@ void dump(const row::KelvinWake& w,const std::filesystem::path& dir,const std::s
 int main(int argc,char** argv) {
     const std::filesystem::path output=argc>1?argv[1]:"";
     using Wake=row::KelvinWake;
+    auto foamMass=[](const row::Waves& water) {
+        double total=0; for(float f:water.bowFoam) total+=f; return total;
+    };
+    row::Waves stopped;
+    for(float speed:{0.f,-1.f,.3f,std::numeric_limits<float>::quiet_NaN()})
+        row::BowWhitewater(speed).emit(stopped,0,0,0,1.f);
+    check(foamMass(stopped)==0,"stopped/invalid/very slow boat emits no bow whitewater");
+    double previousMass=0;
+    for(float speed:{1.f,2.f,3.f}) {
+        row::Waves water;
+        const row::BowWhitewater bow(speed);
+        for(int i=0;i<60;++i) bow.emit(water,0,0,0,1.f/60);
+        const double mass=foamMass(water);
+        check(mass>previousMass,"bow foam increases with boat speed"); previousMass=mass;
+        check(water.bowFoam[128*256+138]>.1f,"whitewater reaches ahead of the 2.3 m hull tip");
+        double stern=0,asymmetry=0;
+        for(int y=1;y<256;++y) for(int x=0;x<256;++x) {
+            if(x<128) stern+=water.bowFoam[y*256+x];
+            asymmetry=std::max(asymmetry,double(std::abs(water.bowFoam[y*256+x]-water.bowFoam[(256-y)*256+x])));
+        }
+        check(stern==0 && asymmetry<1e-6,"bow emitter is bilateral and never emits at the stern");
+    }
+    row::Waves sixty,ninety,turned;
+    const row::BowWhitewater cruise(2);
+    for(int i=0;i<60;++i) cruise.emit(sixty,0,0,0,1.f/60);
+    for(int i=0;i<90;++i) cruise.emit(ninety,0,0,0,1.f/90);
+    check(std::abs(foamMass(sixty)-foamMass(ninety))/foamMass(sixty)<1e-5,"foam production is independent of render frame rate");
+    cruise.emit(turned,0,0,Wake::Pi/2,1);
+    check(turned.bowFoam[138*256+128]>.1f && turned.bowFoam[128*256+138]==0,"bow emission follows boat heading, not a fixed world axis");
+    const float deposited=sixty.bowFoam[128*256+138];
+    sixty.center(.25,0);
+    check(sixty.bowFoam[128*256+137]==deposited,"existing bow foam stays at its deposited world position");
+    const double beforeDecay=foamMass(sixty);
+    for(int i=0;i<600;++i) { row::BowWhitewater(0).emit(sixty,0,0,0,row::Waves::Step); sixty.tick(); }
+    check(foamMass(sixty)<beforeDecay*.01,"remaining bow foam fades after stopping");
+    check(row::BowWhitewater(0).crest(2.4f,0,0)==0 && cruise.crest(2.4f,0,0)>0 && cruise.crest(2.4f,0,0)<=.022f,
+        "small bow crest uses speed and never lifts the stopped surface");
+    check(std::all_of(turned.height.begin(),turned.height.end(),[](float h){return h==0;}),"whitewater emission does not inject extra nondispersive hull waves");
+    check(std::all_of(turned.foam.begin(),turned.foam.end(),[](float f){return f==0;}),"bow foam does not change the oar bubble layer");
+    turned.center(1000,1000);
+    check(foamMass(turned)==0,"teleport clears bow foam as well as the wave field");
     // Independent Fourier-mode oracle: two different wavelengths must oscillate
     // at sqrt(g*k), not the old constant-speed omega=c*k. Test actual solver.
     for(int mode:{4,16}) {

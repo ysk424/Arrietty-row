@@ -15,6 +15,14 @@ treat image feedback or completion of a test as merge authorization; wait for
 the rider's explicit integration instruction after reviewing the test results.
 Japanese explanation and test instructions: [WATER.ja.md](WATER.ja.md).
 
+Follow-up request: add speed-dependent whitewater at the bow, alongside the
+Kelvin wake in the same worktree. RowBowWhitewater.h deposits bilateral bow
+foam outside the visible hull and adds a small visual crest to both height and
+normals. It uses boat speed through drive/coast, stops emitting at rest, and
+leaves fading world-space foam. Existing oar effects and live controls remain.
+The feature still requires worktree hardware testing and explicit integration
+instruction before any change to main.
+
 2026-09-09. User authorized an independent public MIT `ysk424/Arrietty-row`.
 UE 5.8 and C++; do not change existing Arrietty-UE58 or Secret-World projects.
 

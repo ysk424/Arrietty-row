@@ -38,7 +38,7 @@ void ARowWater::BeginPlay() {
     Patch->CreateMeshSection_LinearColor(0,v,tri,n,uv,{}, {},false);
     Patch->SetMaterial(0,LocalMaterial);
     Upload();
-    UE_LOG(LogTemp,Display,TEXT("ROW_WATER_READY far_actors=%d local_triangles=%d field=256 kelvin=deep_water_fft hz=30"),waterActors,tri.Num()/3);
+    UE_LOG(LogTemp,Display,TEXT("ROW_WATER_READY far_actors=%d local_triangles=%d field=256 kelvin=deep_water_fft hz=30 bow_whitewater=speed"),waterActors,tri.Num()/3);
 }
 void ARowWater::UpdateBoat(FVector pos,float heading,float speed,float drive,float dt) {
     if(!LocalMaterial) return;
@@ -55,7 +55,6 @@ void ARowWater::UpdateBoat(FVector pos,float heading,float speed,float drive,flo
     WakeTime+=dt;
     if(WakeTime>=.08 && speed>.12) {
         WakeTime=0; const float strength=FMath::Clamp(speed/3.f,0.f,1.f);
-        Waves.disturb(x+fx*2,y+fy*2,0,.40f,.008f*strength);
         for(int side:{-1,1}) Waves.disturb(x-fx*1.8+rx*.45*side,y-fy*1.8+ry*.45*side,
             0,.40f,.025f*strength);
     }
@@ -64,12 +63,17 @@ void ARowWater::UpdateBoat(FVector pos,float heading,float speed,float drive,flo
         WasDriving=true;
     } else if(drive<.08) WasDriving=false;
     Accumulator+=FMath::Min(dt,.1f);
-    while(Accumulator>=row::Waves::Step) { Waves.tick(); Accumulator-=row::Waves::Step; }
+    const row::BowWhitewater bow(speed);
+    while(Accumulator>=row::Waves::Step) {
+        bow.emit(Waves,x,y,heading,row::Waves::Step);
+        Waves.tick(); Accumulator-=row::Waves::Step;
+    }
     if(!HaveBoat || std::hypot(x-PreviousX,y-PreviousY)>8) {
         PreviousX=x; PreviousY=y; PreviousHeading=heading; PreviousSpeed=0;
         KelvinAccumulator=0; HaveBoat=true;
     }
     const double frame=FMath::Clamp(double(dt),0.,.1);
+    WaterTime+=frame;
     KelvinAccumulator+=frame;
     while(KelvinAccumulator>=row::KelvinWake::Step) {
         // Sample the travelled segment near the middle of each fixed step.
@@ -89,13 +93,21 @@ void ARowWater::Upload() {
     // it between 30 Hz uploads makes an otherwise stationary wake judder.
     for(auto m:{LocalMaterial,DistantMaterial})
         m->SetVectorParameterValue(TEXT("FieldOrigin"),FLinearColor(Waves.originX*100,Waves.originY*100,6400,0));
-    auto height=[&](int k) { return Waves.height[k]+Kelvin.height[k]; };
+    const row::BowWhitewater bow(PreviousSpeed);
+    const double fx=std::cos(PreviousHeading),fy=std::sin(PreviousHeading);
+    for(int y=0;y<N;++y) for(int x=0;x<N;++x) {
+        const int k=y*N+x;
+        const double dx=Waves.originX+x*row::Waves::Cell-PreviousX,dy=Waves.originY+y*row::Waves::Cell-PreviousY;
+        Surface[k]=Waves.height[k]+Kelvin.height[k]+bow.crest(float(dx*fx+dy*fy),float(-dx*fy+dy*fx),WaterTime);
+    }
+    auto height=[&](int k) { return Surface[k]; };
     auto pixels=new FFloat16Color[N*N];
     for(int y=0;y<N;++y) for(int x=0;x<N;++x) {
         const int k=y*N+x;
         const float dx=(height(y*N+FMath::Min(x+1,N-1))-height(y*N+FMath::Max(x-1,0)))/(2*row::Waves::Cell);
         const float dy=(height(FMath::Min(y+1,N-1)*N+x)-height(FMath::Max(y-1,0)*N+x))/(2*row::Waves::Cell);
-        pixels[k]=FFloat16Color(FLinearColor(height(k),dx,dy,Waves.foam[k]));
+        const float foam=1-(1-Waves.foam[k])*(1-Waves.bowFoam[k]);
+        pixels[k]=FFloat16Color(FLinearColor(height(k),dx,dy,foam));
     }
     auto region=new FUpdateTextureRegion2D(0,0,0,0,N,N);
     Field->UpdateTextureRegions(0,1,region,N*sizeof(FFloat16Color),sizeof(FFloat16Color),

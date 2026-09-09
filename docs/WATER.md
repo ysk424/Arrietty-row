@@ -52,6 +52,22 @@ respective sides. Texture origin changes accompany uploads to avoid sliding
 between texture updates. Existing wind ripples, the 22–28 m surface fade, mean
 lake reference **Z=0 cm**, scenery, and level HMD root remain in place.
 
+`Source/RowBowWhitewater.h` adds speed-driven bow whitewater. Its two shoulders
+join at 2.4 m ahead of the boat origin, outside the 2.3 m hull tip. Emission is
+zero below 0.4 m/s, grows smoothly with boat speed, and is bounded at high speed.
+The profile length/width grow with speed; a saturating rate deposits foam into
+its own world-space foam channel at fixed steps, combined with existing foam
+on upload. It continues while coasting and decays with an approximately 0.32 s
+half-life after emission, faster than the unchanged oar bubble layer. A local
+animated crest (at most 2.2 cm) is included in the
+uploaded height AND its normal derivatives, separate from the Kelvin solver.
+This is an artistic breaking/entrained-air layer, not particle or breaking-fluid
+simulation. Oar ripples and bubbles remain. No material regeneration is needed.
+
+Bow verification captures can use distinct names without replacing earlier
+Kelvin evidence: `./tools/preview.ps1 -Chase -Straight -Name row-bow-chase` and
+`./tools/preview.ps1 -Straight -Name row-bow-view`. Run them one at a time.
+
 ## Reproduce the checks
 
 Run these from the feature worktree:

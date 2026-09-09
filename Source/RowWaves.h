@@ -10,8 +10,8 @@ public:
     static constexpr int N=256;
     static constexpr float Cell=.25f,Step=1.f/60.f;
     double originX=-32,originY=-32;
-    std::vector<float> height,previous,foam;
-    Waves():height(N*N),previous(N*N),foam(N*N),next(N*N),scratch(N*N) {}
+    std::vector<float> height,previous,foam,bowFoam;
+    Waves():height(N*N),previous(N*N),foam(N*N),bowFoam(N*N),next(N*N),scratch(N*N) {}
     void center(double x,double y) {
         const double nx=std::floor((x-32)/Cell)*Cell,ny=std::floor((y-32)/Cell)*Cell;
         const int dx=int(std::round((nx-originX)/Cell)),dy=int(std::round((ny-originY)/Cell));
@@ -24,7 +24,7 @@ public:
             }
             a.swap(scratch);
         };
-        shift(height); shift(previous); shift(foam); originX=nx; originY=ny;
+        shift(height); shift(previous); shift(foam); shift(bowFoam); originX=nx; originY=ny;
     }
     void disturb(double x,double y,float amplitude,float radius,float bubbles) {
         const int cx=int(std::round((x-originX)/Cell)),cy=int(std::round((y-originY)/Cell));
@@ -48,6 +48,9 @@ public:
             const float lap=height[k-1]+height[k+1]+height[k-N]+height[k+N]-4*height[k];
             next[k]=std::clamp((2*height[k]-previous[k]+c2*lap)*damp,-.18f,.18f);
             foam[k]*=.992f*std::min(1.f,float(border)/8.f);
+            // Breaking bow foam dissipates quickly; oar bubbles keep their
+            // original longer lifetime. Avoid a persistent white carpet.
+            bowFoam[k]*=.965f*std::min(1.f,float(border)/8.f);
         }
         previous.swap(height); height.swap(next);
     }

@@ -12,6 +12,6 @@ $process=Start-Process -FilePath (Join-Path $EngineRoot 'Engine/Binaries/Win64/U
 $process.WaitForExit()
 $output=Get-Content -LiteralPath $log -Raw
 if($process.ExitCode -ne 0 -or $output -notmatch 'Test Completed\. Result=\{Success\}.*ArriettyRow.Controls.SetupEnter') {
-    throw "UE setup control test failed. Evidence: $log"
+    throw "UE setup control test failed (exit $($process.ExitCode)). Evidence: $log"
 }
 Write-Output "PASS UE setup controls, repeated Enter, stop/retry and panel attachment. Evidence: $log"

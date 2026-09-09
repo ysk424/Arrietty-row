@@ -70,6 +70,8 @@ transverse waves, divergent waves and curved wake history. Oar ripples and foam
 remain separate. See [Kelvin wake development](docs/WATER.md) for the model,
 offline previews and checks. This feature is not yet merged into the accepted
 training version on `main`.
+Speed-driven whitewater now forms outside the bow, growing during faster travel
+and fading after stopping; it also continues during coasting.
 
 ## Development
 

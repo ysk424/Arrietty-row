@@ -1,9 +1,11 @@
 [CmdletBinding()]
-param([switch]$Chase,[switch]$Setup,[switch]$Water,[switch]$Straight,[string]$EngineRoot='C:/Program Files/Epic Games/UE_5.8')
+param([switch]$Chase,[switch]$Setup,[switch]$Water,[switch]$Straight,
+    [ValidatePattern('^[a-zA-Z0-9_-]+$')][string]$Name,
+    [string]$EngineRoot='C:/Program Files/Epic Games/UE_5.8')
 $ErrorActionPreference='Stop'
 $repo=Split-Path -Parent $PSScriptRoot
 $project=Join-Path $repo 'unreal/ArriettyRow/ArriettyRow.uproject'
-$name=if($Setup){'row-setup'}elseif($Water){$(if($Straight){'row-kelvin-straight'}else{'row-kelvin-turn'})}elseif($Chase){'row-wake'}else{'row-view'}
+if(-not $Name) { $Name=if($Setup){'row-setup'}elseif($Water){$(if($Straight){'row-kelvin-straight'}else{'row-kelvin-turn'})}elseif($Chase){'row-wake'}else{'row-view'} }
 $output=Join-Path $repo ('artifacts/'+$name+'.png')
 $log=Join-Path $repo ('logs/'+$name+'.log')
 New-Item -ItemType Directory -Force -Path (Split-Path $output) | Out-Null
