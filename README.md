@@ -28,7 +28,8 @@ Press **Enter** on the keypad, return to your normal posture during the two-seco
 countdown, hold still for one second, then move the handle straight out and back
 twice. The boat starts automatically after measuring the machine axis. Setup
 does not count as exercise or move the boat. Enter also pauses and resumes
-(with fresh calibration), or cancels an in-progress setup. **Numpad 0**
+(with fresh calibration). Extra Enter presses during setup preserve progress.
+**Numpad 0** cancels setup or
 stops, saves the session, and returns the boat to its starting position.
 Insert (Num Lock off) and Esc also stop. Lean sideways to turn; head rotation
 alone does not steer. After tracking loss, restore tracking and press Enter.
@@ -65,6 +66,8 @@ The approved Lake Bled mesh mountains and UE atmosphere form the distant view.
 `./tools/build_native.ps1 -Devices` builds the native hardware probe.
 `python tools/test_keypad.py` checks keypad/main Enter, repeat suppression, and
 stop keys through Windows messages in a separate offline UE game window.
+`./tools/test_setup.ps1` runs a UE automation regression for repeated Enter
+during setup, stop/retry, and camera/boat attachment of the instruction panel.
 `tools/diagnose.py` is an optional Python diagnostic tool; Python is not part
 of the simulator runtime. The editor content generator also uses UE's Python.
 

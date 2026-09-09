@@ -67,3 +67,10 @@ in RowCalibration.h, RowCore.h and the UE pawn/panel. Start/resume now runs setu
 before the boat moves. See STEERING.md for exact thresholds and failure behavior.
 The physical center/axis stay fixed during a run. Fresh local CSV includes lean,
 steering and yaw rate; never publish the user's exercise/pose samples.
+
+Follow-up Enter report: real input logs showed repeated calibration_begin /
+calibration_cancel and later an Axis-stage timeout, not a missing Enter event.
+Extra Enter during setup now preserves progress; NUM 0 is the explicit cancel.
+Ready/setup instructions follow the HMD, because the physical room origin is
+not yet centered. Successful calibration reattaches instruments to the boat.
+Do not confuse a pending bar-motion calibration with a keyboard mapping fault.

@@ -8,6 +8,7 @@ steers; head yaw must never steer after calibration. Keep the camera horizon
 level; animate boat and water separately. Missing heart rate is not zero bpm.
 Start/resume uses 2 s settle, 1 s averaged quiet neutral and two bar strokes to
 measure the machine axis. Calibration never advances the boat/session metrics.
+Extra Enter during calibration preserves progress; NUM 0 cancels, Enter retries.
 Keep the +/-8 cm straight zone and its gauge consistent; do not silently fall
 back to gaze-based steering or continuously recenter during exercise.
 Keep hardware identities, health/session data, generated UE content, Epic code,

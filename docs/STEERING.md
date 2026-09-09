@@ -2,7 +2,10 @@
 
 Every start/resume measures a new physical neutral and machine axis. The boat,
 active exercise time, virtual distance and stroke count remain stopped during
-setup. Keypad Enter cancels setup; another Enter retries. Numpad 0 stops/home.
+setup. Extra keypad Enter presses preserve setup progress. Numpad 0 cancels
+setup/stops/home; Enter then retries. Setup instructions follow the camera until
+calibration succeeds, so they remain visible before a room neutral exists.
+The instrument panel returns to its boat attachment when rowing begins.
 No ongoing adaptive recentering changes the meaning of a deliberate lean.
 
 1. **Get comfortable (2 s):** ignore the posture used to reach the keypad.

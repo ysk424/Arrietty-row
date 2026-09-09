@@ -22,7 +22,9 @@ public:
     virtual void SetupPlayerInputComponent(UInputComponent* Input) override;
 private:
     friend class FRowKeyInput;
+    friend class FRowSetupControlsTest;
     void Toggle();
+    void ShowSetupPanel();
     void FinishCalibration(const row::Input& Input);
     void Stop();
     void BuildBoat();

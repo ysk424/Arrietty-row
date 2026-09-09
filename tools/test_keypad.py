@@ -127,7 +127,8 @@ def main():
         activate_test_window()
         time.sleep(5)  # Let initial streaming settle before starting the model.
         press('keypad Enter starts setup', 0x0D, 0x1C, True, 'calibration_begin')
-        press('keypad Enter cancels setup', 0x0D, 0x1C, True, 'calibration_cancel')
+        press('keypad Enter keeps setup running', 0x0D, 0x1C, True, 'calibration_continue')
+        press('numpad 0 cancels setup', 0x60, 0x52, False, 'stop_home')
         press('keypad Enter (extended)', 0x0D, 0x1C, True, 'start')
         press('keypad Enter pause', 0x0D, 0x1C, True, 'pause')
         press('keypad Enter resume', 0x0D, 0x1C, True, 'start')

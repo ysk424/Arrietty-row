@@ -59,7 +59,7 @@ Python exercise. The user subsequently confirmed multiple runs using the
 physical keypad and reported left drift. The new calibration/margin/gauge
 changes address that feedback; their physical steering feel still needs review.
 
-`tools/test_keypad.py` passes **11 Windows key presses** in a separate
+The earlier `tools/test_keypad.py` run passed **11 Windows key presses** in a separate
 offline UE game: extended keypad Enter start/pause/resume/restart, main Enter,
 numpad 0 with Num Lock on, Insert with Num Lock off, Esc, and setup cancellation.
 Each press includes three repeat messages; each creates one input command.
@@ -67,6 +67,21 @@ Start/resume commands run the real setup state machine with synthetic physical
 poses, then automatically start after a completed measured calibration. All
 commands pass through the Slate preprocessor and the offline game exits with
 code 0. This automation does not test USB reports or input to an inactive app.
+
+After the next real Enter report, input logs showed setup begin/cancel cycles
+and an axis-stage timeout. Enter delivery itself was working. Setup now ignores
+additional Enter presses while preserving progress; NUM 0 cancels explicitly.
+`tools/test_setup.ps1` passes the UE automation test
+`ArriettyRow.Controls.SetupEnter`: five extra Enter actions preserve a partially
+completed setup, calibration completes, running Enter pauses, NUM 0 clears
+setup, and the panel follows the camera until returning to the boat on start.
+This test invokes the production control handlers in an offline UE game and
+does not simulate Windows key delivery. Evidence: logs/setup-controls-20260909-175953.log.
+An offscreen UE capture with the camera displaced from the boat confirms the
+setup panel stays in view, showing `2/3 HOLD STILL` and zero exercise metrics.
+Evidence: artifacts/row-setup.png (`tools/preview.ps1 -Setup -Chase`). The capture
+itself causes a frame hitch and cancels setup afterwards; completion behavior
+is verified separately by the UE automation test above.
 
 The original live session crashed during HMD teardown after its CSV exit record
 was saved. Deferring OpenVR release until after OpenXR teardown removes that

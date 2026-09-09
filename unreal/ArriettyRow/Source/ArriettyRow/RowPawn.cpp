@@ -69,9 +69,9 @@ ARowPawn::ARowPawn() {
     BoatRoot=CreateDefaultSubobject<USceneComponent>(TEXT("BoatVisuals")); BoatRoot->SetupAttachment(RootComponent);
     Hull=CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("Hull")); Hull->SetupAttachment(BoatRoot);
     Hull->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    Instruments=CreateDefaultSubobject<UWidgetComponent>(TEXT("RowInstruments")); Instruments->SetupAttachment(RootComponent);
+    Instruments=CreateDefaultSubobject<UWidgetComponent>(TEXT("RowInstruments")); Instruments->SetupAttachment(Camera);
     Instruments->SetWidgetSpace(EWidgetSpace::World); Instruments->SetWidgetClass(URowPanel::StaticClass());
-    Instruments->SetDrawSize(FVector2D(1000,360)); Instruments->SetRelativeLocation(FVector(115,0,53));
+    Instruments->SetDrawSize(FVector2D(1000,360)); Instruments->SetRelativeLocation(FVector(115,0,-30));
     Instruments->SetRelativeRotation(FRotator(22,180,0)); Instruments->SetRelativeScale3D(FVector(.075));
     Instruments->SetTwoSided(true); Instruments->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Instruments->SetCastShadow(false); Instruments->SetWindowFocusable(false);
@@ -145,9 +145,11 @@ void ARowPawn::Toggle() {
         UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=pause")); return;
     }
     if(Model.state==row::State::Calibrating) {
-        Model.state=row::State::Paused; Calibration={}; Notice=TEXT("SETUP PAUSED / NUM ENTER");
-        UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=calibration_cancel")); return;
+        // A second press must not cancel a start that is already in progress.
+        // Some keypads also generate repeated complete down/up pairs when held.
+        UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=calibration_continue")); return;
     }
+    ShowSetupPanel();
     const auto in=ReadInput();
     if(!Calibration.begin(in)) {
         Notice=TEXT("Enter received / check HMD + bar");
@@ -156,6 +158,13 @@ void ARowPawn::Toggle() {
     }
     Model.calibrate(); CalibrationMotionTime=0; Notice.Empty(); Record(TEXT("calibration_begin"));
     UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=calibration_begin"));
+}
+void ARowPawn::ShowSetupPanel() {
+    // Before neutral calibration the physical room origin may be far from the
+    // boat. Keep setup instructions in view, then return instruments to the boat.
+    Instruments->AttachToComponent(Camera,FAttachmentTransformRules::KeepRelativeTransform);
+    Instruments->SetRelativeLocation(FVector(115,0,-30));
+    Instruments->SetRelativeRotation(FRotator(15,180,0));
 }
 void ARowPawn::FinishCalibration(const row::Input& in) {
     if(!Model.start(in,Calibration.frame)) {
@@ -176,6 +185,7 @@ void ARowPawn::FinishCalibration(const row::Input& in) {
         Tracking->SetRelativeLocation(fromNeutral-roomEye+FVector(0,0,100));
     }
     const FRotator facing(0,FMath::RadiansToDegrees(Model.heading),0);
+    Instruments->AttachToComponent(RootComponent,FAttachmentTransformRules::KeepWorldTransform);
     BoatRoot->SetWorldRotation(facing); Instruments->SetWorldRotation(FRotator(22,facing.Yaw+180,0));
     Instruments->SetWorldLocation(GetActorLocation()+facing.RotateVector(FVector(115,0,53)));
     if(SessionFile.IsEmpty()) {
@@ -191,7 +201,7 @@ void ARowPawn::Stop() {
     Model.reset(); Calibration={}; CalibrationMotionTime=0; SimTime=0; DemoStarted=true; SetActorTransform(Home);
     Model.heading=FMath::DegreesToRadians(Home.Rotator().Yaw);
     BoatRoot->SetRelativeRotation(FRotator::ZeroRotator);
-    Instruments->SetRelativeLocation(FVector(115,0,53)); Instruments->SetRelativeRotation(FRotator(22,180,0));
+    ShowSetupPanel();
     Notice=TEXT("Stopped / Home");
     UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=stop_home"));
 }
@@ -256,16 +266,16 @@ void ARowPawn::Tick(float dt) {
         Panel->LeanCm=float((Model.state==row::State::Running?Model.lean:row::dot(in.head.position-Model.neutralHead,Model.right))*100);
         if(Model.state==row::State::Calibrating) {
             if(Calibration.phase==row::CalibrationPhase::Settle) {
-                Panel->Status=FString::Printf(TEXT("GET COMFORTABLE  %.1f s"),Calibration.remaining);
+                Panel->Status=FString::Printf(TEXT("1/3  GET READY  %.1f s"),Calibration.remaining);
                 Panel->Guide=TEXT("Release the keypad. Sit in your normal centered rowing posture.");
             } else if(Calibration.phase==row::CalibrationPhase::Center) {
-                Panel->Status=FString::Printf(TEXT("HOLD STILL  %.1f s"),Calibration.remaining);
+                Panel->Status=FString::Printf(TEXT("2/3  HOLD STILL  %.1f s"),Calibration.remaining);
                 Panel->Guide=TEXT("Face the machine and hold your normal posture for one quiet second.");
             } else {
-                Panel->Status=FString::Printf(TEXT("ROW STRAIGHT  %u / 2"),Calibration.strokes);
-                Panel->Guide=Calibration.issue==row::CalibrationIssue::LookForward?TEXT("Face along the machine, then NUM ENTER twice to retry setup."):
-                    Calibration.issue==row::CalibrationIssue::KeepStraight?TEXT("Keep the bar straight. NUM ENTER twice restarts setup if needed."):
-                    TEXT("Move the bar forward and back twice. Boat stays still; rowing starts automatically.");
+                Panel->Status=FString::Printf(TEXT("3/3  ROW THE BAR  %u / 2"),Calibration.strokes);
+                Panel->Guide=Calibration.issue==row::CalibrationIssue::LookForward?TEXT("Face along the machine. NUM 0 then NUM ENTER to retry."):
+                    Calibration.issue==row::CalibrationIssue::KeepStraight?TEXT("Move the bar straight. NUM 0 then NUM ENTER to retry."):
+                    TEXT("ENTER received. Move the bar out and back twice. Starts automatically. NUM 0 cancels.");
             }
         }
         Panel->Detail=FString::Printf(TEXT("%s   %.0f W   %u strokes   HR %s"),Model.usingBt?TEXT("BT power"):TEXT("Tracker estimate"),Model.power,Model.strokes,
