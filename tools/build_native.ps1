@@ -10,6 +10,7 @@ if(-not $vs) { throw 'MSVC x64 tools required' }
 $setup=Join-Path $vs 'VC/Auxiliary/Build/vcvars64.bat'
 $line='cl /nologo /std:c++20 /EHsc /W4 /WX /O2 /I "'+(Join-Path $repo 'Source')+'" "'+(Join-Path $repo 'tests/core_tests.cpp')+'" /Fe:core_tests.exe'
 $waterLine='cl /nologo /std:c++20 /EHsc /W4 /WX /O2 /I "'+(Join-Path $repo 'Source')+'" "'+(Join-Path $repo 'tests/water_tests.cpp')+'" /Fe:water_tests.exe'
+$audioLine='cl /nologo /std:c++20 /EHsc /W4 /WX /O2 /I "'+(Join-Path $repo 'Source')+'" "'+(Join-Path $repo 'tests/audio_tests.cpp')+'" /Fe:audio_tests.exe'
 if($Devices) {
     & (Join-Path $PSScriptRoot 'bootstrap.ps1')
     $sdk=Join-Path $repo 'ThirdParty/OpenVR'
@@ -18,7 +19,7 @@ if($Devices) {
 }
 $bat=Join-Path $out 'build.cmd'
 $commands=@('@echo off',('call "'+$setup+'" >nul'),$line,'if errorlevel 1 exit /b %errorlevel%')
-if(-not $Devices) { $commands+=$waterLine }
+if(-not $Devices) { $commands+=@($waterLine,'if errorlevel 1 exit /b %errorlevel%',$audioLine) }
 $commands+='exit /b %errorlevel%'
 $commands | Set-Content -LiteralPath $bat -Encoding ascii
 Push-Location $out
@@ -27,6 +28,7 @@ try {
     if(-not $Devices) {
         & './core_tests.exe'; if($LASTEXITCODE -ne 0) { throw 'Core tests failed' }
         & './water_tests.exe' (Join-Path $repo 'artifacts/water'); if($LASTEXITCODE -ne 0) { throw 'Water tests failed' }
+        & './audio_tests.exe'; if($LASTEXITCODE -ne 0) { throw 'Audio tests failed' }
     }
 }
 finally { Pop-Location }

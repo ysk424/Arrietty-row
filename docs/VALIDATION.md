@@ -1,5 +1,63 @@
 # Validation
 
+## Firefly rowing audio and left-ear balance, 2026-09-11
+
+- All five final user-supplied masters import as 48 kHz stereo PCM SoundWaves.
+  Original file hashes remain unchanged. Prepared L/R energy differences are
+  within 0.00015 dB of +6 dB; peaks are at most 0.5. Loop boundary differences
+  are below the respective 99th-percentile natural adjacent-sample changes.
+  Evidence: `logs/audio-content-20260911-064251.log`,
+  `artifacts/audio/preparation.json`, `artifacts/audio/seams.json`.
+- MSVC `/W4 /WX /O2`: **104 core + 46 water + 16 audio checks pass**.
+  Audio checks cover state gating, one catch per registered stroke, recovery,
+  coasting, stopping, resetting, invalid values, mix headroom and no metric
+  advancement. Evidence: `logs/native-audio.log`.
+- UE **5.8.2 Editor and Game Development targets build successfully**. The
+  final incremental builds contain no C++ warnings. The first full rebuild
+  reports existing float-literal conversion warnings in unchanged RowPanel.cpp.
+  Evidence: `logs/ue-audio-editor-build-final.log`,
+  `logs/ue-audio-game-build-final.log` and the corresponding initial build logs.
+- The production UE asset automation passes: all five voices have the expected
+  mono-folded stereo sources, PCM codec, inline loading and looping flags;
+  spatialization and multiple instances are disabled. The offline demo emits
+  six catch triggers during capture. The final complete `test_audio.ps1` run
+  passes. Its **30.016 s** actual mixer recording contains audio in all 30 full
+  one-second windows and the final fragment, measures **left +6.0079 dB**,
+  peaks at **-17.06 dBFS**, and has no clipped samples. Every left/right sample
+  pair matches the requested gain within **1.266 PCM units** (16-bit export).
+  The longest consecutive digital silence is **0.146 ms**.
+  Evidence: `logs/audio-runtime-20260911-065456.log`,
+  `artifacts/audio/ue-mix-20260911-065456.wav` and matching `.json`.
+- Existing production setup/Enter/pause/stop/panel-attachment automation passes:
+  `logs/setup-controls-20260911-065232.log`. This does not retest physical USB
+  key delivery. No controls, propulsion, calibration, steering, camera or Lake
+  Bled scenery algorithms/assets were changed by this audio addition.
+
+Capture-harness corrections are retained honestly: the first 36-second
+launcher exited before its simulation-time recording timer completed after
+startup stalls (`audio-runtime-20260911-064624.log`). Capture now starts after
+warmup, uses wall-clock duration, and has a longer exit allowance. The second
+capture was silent because the offscreen window used UE's default unfocused
+volume of zero (`audio-runtime-20260911-064849.log`); the test now overrides
+that setting only for its own process. The first non-silent capture
+(`artifacts/audio/ue-mix-20260911-065036.wav`, left +6.0078 dB, -17.40 dBFS)
+exceeded an overly tight per-window 0.05 dB RMS tolerance at quiet levels due
+to UE's integer WAV export. The verifier now checks every sample against the
+6 dB ratio with a 2.5-unit source/export quantization bound, plus whole-recording
+balance within 0.05 dB; this same recording passes those checks. A later uncapped
+replay failed synthetic calibration and emitted no catches
+(`audio-runtime-20260911-065317.log`); it is not counted as a pass. The final
+launcher caps its own frame rate to 60 for steadier synthetic timing. No live
+tracking watchdog or calibration rule was relaxed.
+
+The rider subsequently confirmed that the sound was OK on 2026-09-11 and
+explicitly requested push. This records acceptance of the sound result.
+The quantitative checks above remain synthetic game-output measurements, not
+an instrumented headphone listening test, OS/headphone channel calibration,
+live Tracker/BLE trial or long-session comfort measurement. Sound sources are centered in the listener's
+ears; this implementation does not provide 3D sound localization. See
+[audio guide](AUDIO.ja.md). Generated assets, recordings and sessions remain local.
+
 ## Steering at the accepted higher speed, 2026-09-10
 
 The rider subsequently approved dial-gain speed and reported insufficient

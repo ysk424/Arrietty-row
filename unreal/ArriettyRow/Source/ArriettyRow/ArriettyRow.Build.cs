@@ -6,6 +6,7 @@ public class ArriettyRow : ModuleRules {
         bUseUnity=false;
         bEnableExceptions=true;
         PublicDependencyModuleNames.AddRange(new[]{"Core","CoreUObject","Engine","InputCore","HeadMountedDisplay","XRBase","Json","UMG","Slate","SlateCore","ProceduralMeshComponent"});
+        PrivateDependencyModuleNames.Add("AudioMixer");
         string root=Path.GetFullPath(Path.Combine(ModuleDirectory,"../../../.."));
         PublicIncludePaths.Add(Path.Combine(root,"Source"));
         string sdk=Path.Combine(root,"ThirdParty/OpenVR");

@@ -2,6 +2,7 @@
 #include "RowPanel.h"
 #include "RowWater.h"
 #include "RowModule.h"
+#include "RowAudioComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -63,6 +64,7 @@ private:
 ARowPawn::ARowPawn() {
     PrimaryActorTick.bCanEverTick=true; AutoPossessPlayer=EAutoReceiveInput::Player0;
     RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("BoatPosition"));
+    RowAudio=CreateDefaultSubobject<URowAudioComponent>(TEXT("RowAudio"));
     Tracking=CreateDefaultSubobject<USceneComponent>(TEXT("XROrigin")); Tracking->SetupAttachment(RootComponent);
     Camera=CreateDefaultSubobject<UCameraComponent>(TEXT("HMD")); Camera->SetupAttachment(Tracking);
     Camera->bLockToHmd=true; Camera->bUsePawnControlRotation=false; Camera->SetFieldOfView(90);
@@ -111,6 +113,7 @@ void ARowPawn::BeginPlay() {
     if(Panel) Panel->SetIsFocusable(false);
     if(auto mat=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Row/Materials/M_Instruments.M_Instruments"))) Instruments->SetMaterial(0,mat);
     BuildBoat(); Water=GetWorld()->SpawnActor<ARowWater>();
+    RowAudio->Initialize(Offline);
     if(auto pc=Cast<APlayerController>(GetController())) pc->SetInputMode(FInputModeGameOnly());
     UWidgetBlueprintLibrary::SetFocusToGameViewport();
     if(FSlateApplication::IsInitialized()) {
@@ -261,6 +264,7 @@ void ARowPawn::Tick(float dt) {
         Oars[i]->SetRelativeRotation(FRotator(0,side*(68+36*OarBlend),-side*(8-12*OarBlend)));
     }
     if(Water) Water->UpdateBoat(GetActorLocation(),Model.heading,Model.speed,Model.drive,dt);
+    RowAudio->Update(Model,dt);
     if(Panel) {
         Panel->Distance=FString::Printf(TEXT("%.0f m"),Model.distance);
         const int seconds=int(Model.elapsed); Panel->Time=FString::Printf(TEXT("%02d:%02d"),seconds/60,seconds%60);

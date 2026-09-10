@@ -1,6 +1,10 @@
 # Third-party notices
 
 - Application code: MIT, Copyright (c) 2026 ysk424.
+- Five selected sound masters were supplied by the rider as final Adobe Firefly
+  output. Original WAVs and generated UE audio stay local;
+  this repository does not assign them the application's MIT license.
+  See [sound provenance](sounds/README.md).
 - Instrument exposure setup adapts the MIT Arrietty-UE58 project, same copyright.
 - OpenVR SDK: Valve Corporation, BSD-3-Clause. `tools/bootstrap.ps1` downloads
   only the pinned files in `tools/openvr.lock.json`, verifies SHA-256, and keeps

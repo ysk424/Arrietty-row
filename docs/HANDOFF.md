@@ -1,5 +1,30 @@
 # Handoff
 
+2026-09-11 sound addition: the rider supplied five final Adobe Firefly WAVs in
+`sounds/` and requested effects with the left ear 6 dB above the right. New
+`RowAudio.h` / `URowAudioComponent` read existing state, registered strokes,
+drive and speed without altering exercise/calibration/steering. Catch is a
+single voice per registered stroke; pull follows drive; hull water follows
+speed including coasting. Quiet water and wind loop through ready/setup/pause.
+Exercise voices fade out over 80 ms on pause, stop, shore or tracking loss.
+
+`prepare_audio.ps1` imports only `/Game/Row/Audio`; `prepare.ps1` includes this
+step. The five originals remain unchanged/local. Derived loops have tail/head
+crossfades; catch has short end fades. Same-content stereo uses left unity and
+right 10^(-6/20), after mono fold-down and peak normalization to 0.5. PCM and
+nonspatial playback retain that ratio when the rider turns their head. No 3D
+sound localization is implemented. Source gains sum to 1.51 at maximum, leaving
+digital mix headroom even at master volume 1; default is 0.8. Launch volume is
+`tools/run.ps1 -Volume 0..1`. Missing assets log the preparation command.
+Source WAVs, Firefly editing sources, imported UE assets and capture evidence
+stay outside Git. No new redistribution license is inferred for the sounds.
+
+2026-09-11 sound acceptance: the rider confirmed that the sound was OK and
+explicitly requested push. This supersedes the pending sound-acceptance status;
+it does not add instrumented headphone, hardware or long-session measurements.
+See [audio guide](AUDIO.ja.md) and [validation](VALIDATION.md). The accepted
+1.1.0 version number is unchanged.
+
 2026-09-10 acceptance: after accepting the dial-gain speed and requesting better
 turning, the rider approved the resulting steering change and explicitly asked
 to push. The combined power/display/CSV/steering changes are accepted on main.

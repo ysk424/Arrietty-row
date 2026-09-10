@@ -8,6 +8,8 @@ center, and a Bluetooth heart-rate monitor.
 
 ケルビン波・舳先の白波の説明: [WATER.ja.md](docs/WATER.ja.md)
 
+効果音・左耳 +6 dB・音量の操作: [AUDIO.ja.md](docs/AUDIO.ja.md)
+
 The application code is MIT licensed. Unreal Engine, the separately prepared
 Lake Bled scenery, and downloaded OpenVR SDK retain their own licenses.
 Version **1.1.0** was accepted by the rider on **2026-09-10**, including Kelvin
@@ -15,6 +17,8 @@ wakes and speed-driven bow whitewater. It is the official version on `main`;
 development and normal launches use the original `Arrietty-row` checkout.
 The rider also accepted the subsequent dial-level power gain, watt display and
 stronger speed-aware steering on **2026-09-10**; these improvements are on main.
+The rider accepted the five Firefly sound effects and left-ear +6 dB balance
+on **2026-09-11** and explicitly requested push.
 Forward-facing travel is intentional: the rider enjoys the lake and water
 ahead while each drive propels the boat forward.
 See [validation](docs/VALIDATION.md) for measured results and evaluation scope.
@@ -26,6 +30,7 @@ See [validation](docs/VALIDATION.md) for measured results and evaluation scope.
    `/Game/Worlds/LakeBled/Maps/LakeBled`. See [scenery](docs/SCENERY.md).
 3. Run `./tools/prepare.ps1`. This downloads a pinned OpenVR SDK, compiles C++,
    copies local scenery, and creates materials and the rowing map.
+   Place the five local Firefly WAV masters in `sounds/` first; see its README.
 4. Copy `settings.example.json` to `settings.local.json`. Set the exact handle
    Tracker serial and the rower/heart monitor BLE addresses. Local settings,
    diagnostic data, and sessions are ignored by Git. Never commit device IDs.
@@ -84,6 +89,10 @@ and fading after stopping; it also continues during coasting.
 ## Development
 
 `./tools/build_native.ps1` runs the engine-independent C++ checks.
+`./tools/prepare_audio.ps1` rebuilds only the five local sound assets.
+`./tools/test_audio.ps1` checks UE sound assets and records synthetic game output
+to verify the left +6 dB balance and headroom. `./tools/run.ps1 -Volume 0.5`
+sets overall sound volume (0-1, default 0.8).
 `./tools/build_native.ps1 -Devices` builds the native hardware probe.
 `python tools/test_keypad.py` checks keypad/main Enter, repeat suppression, and
 stop keys through Windows messages in a separate offline UE game window.

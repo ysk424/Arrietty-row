@@ -11,6 +11,7 @@ class UProceduralMeshComponent;
 class UStaticMeshComponent;
 class ARowWater;
 class FRowKeyInput;
+class URowAudioComponent;
 UCLASS()
 class ARRIETTYROW_API ARowPawn:public APawn {
     GENERATED_BODY()
@@ -38,6 +39,7 @@ private:
     UPROPERTY() TObjectPtr<UProceduralMeshComponent> Hull;
     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> Oars;
     UPROPERTY() TObjectPtr<ARowWater> Water;
+    UPROPERTY() TObjectPtr<URowAudioComponent> RowAudio;
     UPROPERTY() TObjectPtr<UStaticMesh> Cube;
     std::unique_ptr<row::Devices> Devices;
     row::DeviceSnapshot Snapshot;

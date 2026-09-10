@@ -29,4 +29,5 @@ if(Test-Path -LiteralPath $geo) { Copy-Item -LiteralPath $geo -Destination $prov
 $editor=Join-Path $EngineRoot 'Engine/Binaries/Win64/UnrealEditor-Cmd.exe'
 & $editor $project -run=pythonscript "-script=$(Join-Path $PSScriptRoot 'build_content.py')" -unattended -nop4 -nosplash -nosound -nohmd -NullRHI "-abslog=$(Join-Path $logs 'ue-content.log')" *> (Join-Path $logs 'ue-content-console.log')
 if($LASTEXITCODE -ne 0 -or -not (Select-String -LiteralPath (Join-Path $logs 'ue-content.log') -Pattern 'ROW_CONTENT_READY' -Quiet)) { throw 'Content build failed: logs/ue-content.log' }
+& (Join-Path $PSScriptRoot 'prepare_audio.ps1') -EngineRoot $EngineRoot
 Write-Output "Ready: $project"

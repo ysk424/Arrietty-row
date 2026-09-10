@@ -14,3 +14,7 @@
 *.VC.db
 __pycache__/
 *.pyc
+/sounds/*.wav
+/sounds/*.wava
+/sounds/*.pkf
+/Firefly_audio/
