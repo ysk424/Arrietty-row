@@ -19,6 +19,10 @@ The rider also accepted the subsequent dial-level power gain, watt display and
 stronger speed-aware steering on **2026-09-10**; these improvements are on main.
 The rider accepted the five Firefly sound effects and left-ear +6 dB balance
 on **2026-09-11** and explicitly requested push.
+After a live trial without stopping or stuttering, the rider adopted the short
+Tracker-loss support build as the **normal training version** on **2026-09-11**
+and explicitly requested push. Actual occlusion assistance remains a separate
+measurement limit; see validation. Continue launching from this checkout.
 Forward-facing travel is intentional: the rider enjoys the lake and water
 ahead while each drive propels the boat forward.
 See [validation](docs/VALIDATION.md) for measured results and evaluation scope.
@@ -45,7 +49,9 @@ does not count as exercise or move the boat. Enter also pauses and resumes
 **Numpad 0** cancels setup or
 stops, saves the session, and returns the boat to its starting position.
 Insert (Num Lock off) and Esc also stop. Lean sideways to turn; head rotation
-alone does not steer. After tracking loss, restore tracking and press Enter.
+alone does not steer. During exercise, brief bar occlusions can use explicitly
+labeled HMD assistance or coasting and return automatically. Longer loss or HMD
+loss stops the session; restore tracking and press Enter. See [tracking support](docs/TRACKING.md).
 Both keypad and main Enter work in the active game window. Session keys are
 handled before widget focus; holding a key causes only one action.
 The averaged neutral has an **8 cm straight zone on each side** and a gentle
@@ -58,6 +64,9 @@ distance, elapsed time, speed (from 500 m pace), and original machine watts.
 It also records the dial level, applied multiplier and game watts. Paused time is
 excluded from active time; missing/stale heart rate is `--`, never 0 bpm.
 Sessions stay under `unreal/ArriettyRow/Saved/Sessions/`.
+Normal launches through `tools/run.ps1` overwrite `logs/training.log` each time,
+without creating per-launch backups of that log. Exercise CSV history and
+deliberately archived diagnostic/test evidence are retained separately.
 
 ## Rowing and water
 
@@ -98,6 +107,8 @@ sets overall sound volume (0-1, default 0.8).
 stop keys through Windows messages in a separate offline UE game window.
 `./tools/test_setup.ps1` runs a UE automation regression for repeated Enter
 during setup, stop/retry, and camera/boat attachment of the instruction panel.
+`./tools/test_tracking.ps1` exercises synthetic bar occlusions, automatic return
+and source-labeled CSV in UE. `-Capture` separately captures the assist display.
 `tools/diagnose.py` is an optional Python diagnostic tool; Python is not part
 of the simulator runtime. The editor content generator also uses UE's Python.
 

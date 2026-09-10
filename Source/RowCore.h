@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <optional>
+#include "RowTracking.h"
 
 namespace row {
 constexpr double Pi = 3.14159265358979323846;
@@ -92,10 +93,17 @@ struct Model {
     Vec3 forward{1,0,0},right{0,1,0},neutralHead;
     double previousBar=0,extreme=0,pullTravel=0,recoveryTravel=0;
     bool initialized=false,pulling=false,armed=false;
-    static bool tracking(const Input& in) {
-        return in.bar.valid && in.head.valid && finite(in.bar.position) && finite(in.head.position)
-            && finite(in.head.forward) && in.now-in.bar.received<.25 && in.now>=in.bar.received
+    BarTracking barTracking;
+    static bool headTracking(const Input& in) {
+        return in.head.valid && finite(in.head.position) && finite(in.head.forward)
             && in.now-in.head.received<.25 && in.now>=in.head.received;
+    }
+    static bool barTracked(const Input& in) {
+        return in.bar.valid && finite(in.bar.position)
+            && in.now-in.bar.received<.25 && in.now>=in.bar.received;
+    }
+    static bool tracking(const Input& in) {
+        return barTracked(in) && headTracking(in);
     }
     bool start(const Input& in,const SteeringFrame& frame) {
         if(!tracking(in) || !frame.valid || !finite(frame.forward) || !finite(frame.center)) return false;
@@ -107,6 +115,7 @@ struct Model {
         neutralHead=frame.center;
         previousBar=dot(in.bar.position,forward);
         barPosition=previousBar; extreme=previousBar;
+        barTracking.start(previousBar,dot(in.head.position,forward),in.now);
         barVelocity=lean=steer=drive=power=yawRate=0; initialized=true;
         pullTravel=recoveryTravel=0; pulling=false; armed=true; state=State::Running; return true;
     }
@@ -116,14 +125,26 @@ struct Model {
     // <=20ms substeps in caller; long frame gaps stop rather than launch the boat.
     double tick(const Input& in,double dt) {
         if(state!=State::Running) return 0;
-        if(!tracking(in) || !std::isfinite(dt) || dt<=0 || dt>.1) {
+        if(!headTracking(in) || !std::isfinite(dt) || dt<=0 || dt>.1) {
+            barTracking.issue=!headTracking(in)?TrackingIssue::HeadLost:TrackingIssue::FrameGap;
             state=State::TrackingLost; speed=drive=power=yawRate=0; return 0;
         }
-        const double pos=dot(in.bar.position,forward);
-        const double raw=(pos-previousBar)/dt; previousBar=pos;
-        // A discontinuous pose/recenter cannot become an enormous stroke.
-        if(std::abs(raw)>4.5) { state=State::TrackingLost; speed=drive=power=yawRate=0; return 0; }
-        barPosition=pos;
+        const auto oldSource=barTracking.source;
+        const bool tracked=barTracked(in);
+        if(!barTracking.tick(tracked?dot(in.bar.position,forward):0,tracked,
+            dot(in.head.position,forward),in.now,dt)) {
+            state=State::TrackingLost; speed=drive=power=yawRate=0; return 0;
+        }
+        const double raw=barTracking.delta/dt;
+        barPosition=previousBar=barTracking.position;
+        const bool measured=barTracking.source==BarSource::Tracker && oldSource==BarSource::Tracker;
+        if(!measured) {
+            // Estimated movement and return offsets cannot add stroke counts.
+            // Re-arm only after a measured recovery once tracking has returned.
+            pullTravel=recoveryTravel=0; armed=pulling=false;
+        }
+        if(barTracking.source==BarSource::Coast || barTracking.source==BarSource::Reacquiring ||
+            (barTracking.source==BarSource::Tracker && oldSource!=BarSource::Tracker)) barVelocity=0;
         barVelocity+=(raw-barVelocity)*(1-std::exp(-dt/.06));
         const double lateral=dot(in.head.position-neutralHead,right);
         lean+=(std::clamp(lateral,-.35,.35)-lean)*(1-std::exp(-dt/.28));
@@ -138,11 +159,11 @@ struct Model {
         if(amount==0) yawRate=0;
         else yawRate+=(targetYaw-yawRate)*(1-std::exp(-dt/.35));
         heading+=yawRate*dt;
-        if(barVelocity>.10) {
+        if(measured && barVelocity>.10) {
             recoveryTravel+=std::max(0.,raw*dt);
             if(recoveryTravel>.12) { armed=true; pulling=false; pullTravel=0; }
         }
-        if(barVelocity<-.10) {
+        if(measured && barVelocity<-.10) {
             pullTravel+=std::max(0.,-raw*dt);
             if(armed && !pulling && pullTravel>.08) {
                 ++strokes; pulling=true; armed=false; recoveryTravel=0;

@@ -1,5 +1,45 @@
 # Handoff
 
+2026-09-11 normal-training acceptance: after the live trial and reporting no
+stopping/stuttering, the rider explicitly requested push and adopted this build
+for normal training, with overwritten runtime logs. This supersedes the earlier
+pending-acceptance wording below. Keep the existing 1.1.0 version number and
+launch from the main checkout. `tools/run.ps1` now uses `logs/training.log`,
+truncated before UE opens it so UE creates no per-launch backup for that file.
+The exclusive open refuses to truncate a log still used by another normal run.
+Workout CSV history and deliberately archived test data remain separate/local.
+The trial had no detected bar loss: acceptance does not establish actual
+occlusion-assistance accuracy or reacquisition comfort. No repeat approval is
+needed to publish this accepted change.
+
+2026-09-11 short bar-loss follow-up: after a paired-pose diagnostic trial, the
+rider requested restoring accepted audio main and then confirmed that restored
+build works. Develop from `c5279d2`; the earlier opt-in high-rate diagnostic
+changes remain stashed, with their logs and patch backed up locally. Do not
+reapply them wholesale or conflate their calibration failures with confirmed
+occlusion: the recorded samples all showed fresh valid head/bar poses, no
+calibration completed, and a recorded 400 ms frame gap caused one failure.
+Other exact failing frames may not have been sampled. Logger causation is not
+established.
+
+New `RowTracking.h` adds explicit exercise-only HMD fore/aft assistance or
+coasting for up to 1.25 s, followed by a 0.15 s stable same-Tracker return.
+Calibration, repeated Enter semantics, head-lateral steering/8 cm gauge and
+fixed neutral remain. Inferred motion/return offsets do not count strokes or
+catch sounds. State transitions and exact calibration failure flags/timing
+are logged at low frequency. See [tracking details](TRACKING.md), Japanese
+[usage](USAGE.ja.md), and [validation](VALIDATION.md). Adoption for normal
+training is recorded above; physical occlusion evaluation remains outstanding.
+
+Physical follow-up: the rider completed the requested short trial and reported
+no stopping or stuttering. The live log confirms successful calibration,
+continuous rowing using BT power and the real configured Tracker, and NUM 0
+stop/home. There were no application-detected tracking losses or bar-source
+transitions. Normal operation is supported by this trial; actual occlusion
+assistance/reacquisition is still unverified. Private session data and a log
+snapshot are preserved under ignored `logs/hmd-trial-*`. The subsequent explicit
+normal-training/push instruction is recorded above.
+
 2026-09-11 sound addition: the rider supplied five final Adobe Firefly WAVs in
 `sounds/` and requested effects with the left ear 6 dB above the right. New
 `RowAudio.h` / `URowAudioComponent` read existing state, registered strokes,

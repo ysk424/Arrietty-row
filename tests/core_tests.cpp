@@ -94,8 +94,8 @@ int main() {
     const auto dist=m.distance,elapsed=m.elapsed; m.pause(); m.tick(input(time+1),.01);
     check(m.distance==dist && m.elapsed==elapsed && m.speed==0,"pause freezes session");
     check(start(m,input(time+1)),"resume");
-    auto lost=input(time+1.01); lost.bar.valid=false; m.tick(lost,.01);
-    check(m.state==row::State::TrackingLost && m.speed==0,"tracking loss stops");
+    auto lost=input(time+1.01); lost.head.valid=false; m.tick(lost,.01);
+    check(m.state==row::State::TrackingLost && m.speed==0,"HMD tracking loss stops immediately");
     m.tick(input(time+1.02),.01); check(m.state==row::State::TrackingLost,"no automatic restart");
     m.reset(); check(m.distance==0 && m.elapsed==0 && m.state==row::State::Ready,"reset");
     auto invalid=input(time); invalid.head.position.x=std::numeric_limits<double>::quiet_NaN();

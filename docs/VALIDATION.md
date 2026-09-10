@@ -1,5 +1,81 @@
 # Validation
 
+## Brief bar occlusion support, 2026-09-11 (adopted for normal training)
+
+- Started from accepted audio main `c5279d2`, after the rider verified the
+  restored build. The earlier paired-pose logging changes remain stashed and
+  locally archived; they were not reapplied. The 30-second recording contains
+  2,192 fresh valid bar/HMD sample pairs, no completed machine-axis calibration,
+  and a recorded 400 ms frame gap at one calibration failure. Sampled validity
+  does not rule out losses or failure causes between recorded rows. The trial
+  does not establish that the diagnostic logger caused the failures.
+- MSVC `/W4 /WX /O2`: **104 core + 46 water + 16 audio + 42 tracking checks
+  pass**. Added cases cover explicit HMD assistance, conservative untrained
+  coasting, timeout, unstable return, stale/invalid HMD and bar inputs, pose
+  jumps, frame hitches, no false count/catch on position correction, fixed
+  axis/neutral, rotated machine axes, yaw independence, both continued lateral
+  steering and the 8 cm straight zone, and unchanged calibration requirements.
+  A full 60 cm head excursion is distinguished from a recenter. Evidence:
+  `logs/hmd-assist-native.log`.
+- UE **5.8.2 Editor and Game Development targets build successfully**. Existing float-literal
+  conversion warnings in unchanged RowPanel.cpp recur on full compilation.
+  Evidence: `logs/hmd-assist-editor-build.log`, `logs/hmd-assist-game-build.log`.
+- `tools/test_tracking.ps1` passes **four** real UE synthetic occlusion/return
+  cycles (0.65 s hidden, followed by 0.15 s continuous valid return), with no
+  Enter needed, no false stroke increment, continuing distance, source-labeled
+  CSV and zero setup time/distance at session start. The first run exposed an
+  overly tight head-displacement guard; the 60 cm regression above and final
+  successful run cover the correction. Evidence:
+  `logs/tracking-runtime-20260911-074817.log` and its local demo session CSV.
+- Existing UE setup/Enter/pause/stop/panel-attachment regression passes:
+  `logs/setup-controls-20260911-074906.log`. It invokes production handlers in
+  an offline game; physical key delivery was not retested.
+- Separate real D3D12 capture shows `DEMO / ROWING / HMD ASSIST`, four metrics,
+  the unchanged centered 8 cm gauge and power details fitting the panel.
+  Screenshot readback then caused a 400 ms frame gap, correctly logged as
+  `frame_gap`; this visual run is not counted as a recovery pass. Evidence:
+  `artifacts/tracking-20260911-075107.png`,
+  `logs/tracking-runtime-20260911-075107.log`.
+- An additional local replay fitted a temporary horizontal bar axis from only
+  the two seconds preceding each artificial 0.65 s mask in the earlier physical
+  log. Of 42 overlapping candidate windows, 30 were excluded for recorded gaps
+  or guard failures, 10 used untrained coasting and only 2 enabled assistance.
+  Those 111 assisted samples had 2.06 cm RMS / 3.80 cm maximum position error.
+  This tiny, selected sample is not an accuracy guarantee: the captured run
+  never calibrated, the masks are artificial, and the windows overlap. Raw
+  positions, replay helper and derived results remain ignored under `logs/`.
+  Evidence: `logs/assist-replay.local.json`.
+
+- Physical follow-up: the rider completed the requested trial and reported no
+  stopping or stuttering. The live log confirms completed calibration, BT power,
+  continuous real-Tracker operation and NUM 0 stop/home. No tracking-loss or
+  bar-source-change event occurred. This supports normal live operation, but
+  does not exercise HMD assistance or real reacquisition. Private session
+  metrics, a log snapshot and the rider's feedback are archived under ignored
+  `logs/hmd-trial-*` with a verified CSV copy and checksum manifest.
+
+The **1.25 s** limit is an initial implementation choice, not a measured physical
+occlusion duration. Actual body occlusion, return comfort and undercounted
+strokes still need observation during an actual occlusion. After the trial
+without stopping/stuttering, the rider explicitly adopted this build for normal
+training and requested push, with overwritten runtime logs. This records
+acceptance of the training build without expanding the measurements above.
+The new lightweight transition/failure logs are active in normal launches;
+there is no high-rate pose logger or diagnostic UI mode.
+
+Normal-training log policy: `tools/run.ps1` now truncates `logs/training.log`
+before launch, so UE does not make a per-launch backup of it. The script parses
+successfully; actual launches replaced prior content with no `training-backup`
+file. An offline demo reached ROW_READY, and exclusive access to its active log
+was correctly refused. Workout CSV and archived evidence remain separate.
+Evidence: `logs/training-log-policy.local.json`,
+`logs/training-log-policy-demo.local.log`. The preceding normal VR restart
+encountered an OpenXR graphics-binding initialization dialog before ROW_READY;
+that is preserved in `logs/training-startup-xr-20260911-080143.local.log`.
+The offline log check does not establish successful VR reconnection. The
+verification apps were closed; the successful earlier live trial remains the
+physical evidence for this accepted training build.
+
 ## Firefly rowing audio and left-ear balance, 2026-09-11
 
 - All five final user-supplied masters import as 48 kHz stereo PCM SoundWaves.

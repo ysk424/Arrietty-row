@@ -138,7 +138,13 @@ row::Input ARowPawn::ReadInput() const {
         const double bar=moving?(phase<1?.38*std::cos(row::Pi*phase):-.38*std::cos(row::Pi*(phase-1)/1.8)):OfflineBarRest;
         in.bar={{bar,0,.65},{1,0,0},true,in.now};
         const bool straight=FParse::Param(FCommandLine::Get(),TEXT("RowDemoStraight"));
-        in.head={{0,Demo && !calibrating && !straight?.18*std::sin(SimTime*.07):0,1},{1,0,0},true,in.now};
+        const bool occlusionDemo=Demo && FParse::Param(FCommandLine::Get(),TEXT("RowDemoOcclusion"));
+        in.head={{occlusionDemo && !calibrating?bar/1.3:0,Demo && !calibrating && !straight?.18*std::sin(SimTime*.07):0,1},{1,0,0},true,in.now};
+        // Explicit offline fixture only. Never inject missing poses into VR.
+        if(occlusionDemo && Model.state==row::State::Running && Model.elapsed>=4.) {
+            const double cycle=std::fmod(Model.elapsed-4.,4.);
+            if(cycle<.65) in.bar.valid=false;
+        }
         if(Demo) {
             in.telemetry.power.set(95,in.now);
             in.telemetry.resistance.set(6,in.now);
@@ -203,7 +209,7 @@ void ARowPawn::FinishCalibration(const row::Input& in) {
     if(SessionFile.IsEmpty()) {
         const FString dir=FPaths::ProjectSavedDir()/TEXT("Sessions"); IFileManager::Get().MakeDirectory(*dir,true);
         SessionFile=dir/FString::Printf(TEXT("row-%s.csv"),*FDateTime::UtcNow().ToString(TEXT("%Y%m%dT%H%M%S%ss")));
-        FFileHelper::SaveStringToFile(TEXT("utc,event,active_s,distance_m,speed_kmh,heart_bpm,strokes,source,machine_distance_m,machine_elapsed_s,machine_speed_kmh,power_w,lean_cm,steer,yaw_deg_s,resistance_level,power_multiplier,game_power_w\n"),*SessionFile);
+        FFileHelper::SaveStringToFile(TEXT("utc,event,active_s,distance_m,speed_kmh,heart_bpm,strokes,source,machine_distance_m,machine_elapsed_s,machine_speed_kmh,power_w,lean_cm,steer,yaw_deg_s,resistance_level,power_multiplier,game_power_w,bar_source,bar_gap_s,tracking_issue\n"),*SessionFile);
     }
     Notice.Empty(); Record(TEXT("start"));
     UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=start"));
@@ -225,6 +231,7 @@ void ARowPawn::Tick(float dt) {
     if(Snapshot.bar.valid) ++ValidBarFrames;
     if(Demo && !DemoStarted && row::Devices::seconds()-Began>8) { Toggle(); DemoStarted=true; }
     const auto in=ReadInput(); const auto oldState=Model.state; const double oldHeading=Model.heading;
+    const auto oldBarSource=Model.barTracking.source;
     if(Model.state==row::State::Calibrating) {
         const auto oldPhase=Calibration.phase;
         Calibration.tick(in,dt);
@@ -234,13 +241,20 @@ void ARowPawn::Tick(float dt) {
         else if(Calibration.phase==row::CalibrationPhase::Failed) {
             Model.state=Calibration.issue==row::CalibrationIssue::Tracking?row::State::TrackingLost:row::State::Paused;
             Notice=Calibration.issue==row::CalibrationIssue::Tracking?TEXT("SETUP LOST / NUM ENTER"):TEXT("SETUP TIMEOUT / NUM ENTER");
+            UE_LOG(LogTemp,Display,TEXT("ROW_CALIBRATION_FAILED issue=%d dt_s=%.4f bar_valid=%d head_valid=%d bar_age_s=%.4f head_age_s=%.4f"),
+                int(Calibration.issue),dt,row::Model::barTracked(in),row::Model::headTracking(in),in.now-in.bar.received,in.now-in.head.received);
             Record(TEXT("calibration_failed"));
         }
     }
     // Pose derivatives use the real frame interval; a hitch invokes core watchdog.
     const double moved=oldState==row::State::Calibrating?0:Model.tick(in,dt);
     if(Model.state==row::State::Running) SimTime+=dt;
-    if(oldState==row::State::Running && Model.state==row::State::TrackingLost) Record(TEXT("tracking_lost"));
+    if(oldState==row::State::Running && (oldBarSource!=Model.barTracking.source || Model.state==row::State::TrackingLost)) {
+        Record(Model.state==row::State::TrackingLost?TEXT("tracking_lost"):TEXT("bar_source_changed"));
+        UE_LOG(LogTemp,Display,TEXT("ROW_TRACKING source=%s gap_s=%.3f issue=%s dt_s=%.4f bar_valid=%d head_valid=%d"),
+            UTF8_TO_TCHAR(row::barSourceName(Model.barTracking.source)),Model.barTracking.gapSeconds,
+            UTF8_TO_TCHAR(row::trackingIssueName(Model.barTracking.issue)),dt,row::Model::barTracked(in),row::Model::headTracking(in));
+    }
     if(moved>0) {
         const FVector delta(std::cos(Model.heading)*moved*100,std::sin(Model.heading)*moved*100,0);
         FHitResult hit;
@@ -271,11 +285,14 @@ void ARowPawn::Tick(float dt) {
         Panel->Speed=FString::Printf(TEXT("%.1f"),Model.speed*3.6);
         const auto hr=Snapshot.heart;
         Panel->Heart=hr.fresh(in.now,5) && hr.value>0?FString::Printf(TEXT("%.0f"),hr.value):TEXT("--");
-        const TCHAR* state=Model.state==row::State::Running?TEXT("ROWING"):Model.state==row::State::Paused?TEXT("PAUSED"):
+        const TCHAR* rowing=Model.barTracking.source==row::BarSource::HmdAssist?TEXT("ROWING / HMD ASSIST"):
+            Model.barTracking.source==row::BarSource::Coast?TEXT("BAR LOST / COASTING"):
+            Model.barTracking.source==row::BarSource::Reacquiring?TEXT("BAR RETURNING / COASTING"):TEXT("ROWING");
+        const TCHAR* state=Model.state==row::State::Running?rowing:Model.state==row::State::Paused?TEXT("PAUSED"):
             Model.state==row::State::TrackingLost?TEXT("TRACKING LOST / NUM ENTER"):TEXT("READY / NUM ENTER");
-        Panel->Status=Demo?TEXT("DEMO / synthetic strokes"):!Notice.IsEmpty()?Notice:state;
+        Panel->Status=!Notice.IsEmpty()?Notice:Demo?FString::Printf(TEXT("DEMO / %s"),state):FString(state);
         Panel->Guide=TEXT("NUM ENTER Start / Pause     NUM 0 Stop / Home     Lean left / right to steer");
-        Panel->SteeringAvailable=Calibration.frame.valid && row::Model::tracking(in) && Model.state!=row::State::Calibrating;
+        Panel->SteeringAvailable=Calibration.frame.valid && row::Model::headTracking(in) && Model.state!=row::State::Calibrating;
         Panel->LeanCm=float((Model.state==row::State::Running?Model.lean:row::dot(in.head.position-Model.neutralHead,Model.right))*100);
         if(Model.state==row::State::Calibrating) {
             if(Calibration.phase==row::CalibrationPhase::Settle) {
@@ -291,17 +308,20 @@ void ARowPawn::Tick(float dt) {
                     TEXT("ENTER received. Move the bar out and back twice. Starts automatically. NUM 0 cancels.");
             }
         }
-        const bool estimateAvailable=Model.state==row::State::Running && row::Model::tracking(in);
+        const bool estimateAvailable=Model.state==row::State::Running &&
+            (Model.barTracking.source==row::BarSource::Tracker || Model.barTracking.source==row::BarSource::HmdAssist);
         const auto output=row::samplePower(in.telemetry,in.now,estimateAvailable?Model.barVelocity:0.);
         const bool powerAvailable=output.usingBt || estimateAvailable;
         const FString watts=powerAvailable?FString::Printf(TEXT("%.0f"),output.usingBt?output.machineWatts:output.baseWatts):TEXT("--");
         const FString load=output.resistance>=1?FString::Printf(TEXT("%.0f"),output.resistance):TEXT("-- (x1)");
         const FString game=powerAvailable?FString::Printf(TEXT("%.0f"),output.gameWatts):TEXT("--");
         Panel->Detail=FString::Printf(TEXT("%s %s W  |  LOAD %s  |  GAME %s W  |  %u strokes"),
-            output.usingBt?TEXT("BT"):TEXT("Tracker est"),*watts,*load,*game,Model.strokes);
+            output.usingBt?TEXT("BT"):Model.barTracking.source==row::BarSource::HmdAssist?TEXT("HMD est"):TEXT("Tracker est"),*watts,*load,*game,Model.strokes);
     }
     if(!SessionFile.IsEmpty() && in.now>=NextRecord) { Record(TEXT("sample")); NextRecord=in.now+1; }
-    if(ScreenshotAt>0 && time>ScreenshotAt && !ScreenshotPath.IsEmpty()) {
+    const bool captureAssist=Offline && Demo && FParse::Param(FCommandLine::Get(),TEXT("RowCaptureAssist")) &&
+        Model.barTracking.source==row::BarSource::HmdAssist && Model.barTracking.gapSeconds>.1;
+    if(ScreenshotAt>0 && (time>ScreenshotAt || captureAssist) && !ScreenshotPath.IsEmpty()) {
         FScreenshotRequest::RequestScreenshot(ScreenshotPath,false,false); ScreenshotAt=0;
         UE_LOG(LogTemp,Display,TEXT("ROW_PREVIEW_CAPTURE distance_m=%.2f state=%d"),Model.distance,int(Model.state));
     }
@@ -310,7 +330,8 @@ void ARowPawn::Tick(float dt) {
 void ARowPawn::Record(const TCHAR* event) {
     if(SessionFile.IsEmpty()) return;
     const auto in=ReadInput(); const double now=in.now; const auto& t=in.telemetry;
-    const bool estimateAvailable=Model.state==row::State::Running && row::Model::tracking(in);
+    const bool estimateAvailable=Model.state==row::State::Running &&
+        (Model.barTracking.source==row::BarSource::Tracker || Model.barTracking.source==row::BarSource::HmdAssist);
     const auto output=row::samplePower(t,now,estimateAvailable?Model.barVelocity:0.);
     auto value=[&](const row::Field& f,double scale=1.) { return f.fresh(now,5) && f.value>=0?FString::Printf(TEXT("%.3f"),f.value*scale):FString(); };
     const FString hr=Snapshot.heart.value>0?value(Snapshot.heart):FString();
@@ -318,10 +339,12 @@ void ARowPawn::Record(const TCHAR* event) {
     const FString resistance=output.resistance>=1?FString::Printf(TEXT("%.0f"),output.resistance):FString();
     const FString game=output.usingBt || estimateAvailable?FString::Printf(TEXT("%.3f"),output.gameWatts):FString();
     const FString machinePower=output.usingBt?FString::Printf(TEXT("%.3f"),output.machineWatts):FString();
-    const FString line=FString::Printf(TEXT("%s,%s,%.3f,%.3f,%.3f,%s,%u,%s,%s,%s,%s,%s,%.2f,%.3f,%.3f,%s,%.0f,%s\n"),
+    const FString line=FString::Printf(TEXT("%s,%s,%.3f,%.3f,%.3f,%s,%u,%s,%s,%s,%s,%s,%.2f,%.3f,%.3f,%s,%.0f,%s,%s,%.3f,%s\n"),
         *FDateTime::UtcNow().ToIso8601(),event,Model.elapsed,Model.distance,Model.speed*3.6,*hr,Model.strokes,
-        Demo?TEXT("demo"):output.usingBt?TEXT("bt"):TEXT("tracker_estimate"),*value(t.distance),*value(t.elapsed),*speed,*machinePower,
-        Model.lean*100,Model.steer,FMath::RadiansToDegrees(Model.yawRate),*resistance,output.multiplier,*game);
+        Demo?TEXT("demo"):output.usingBt?TEXT("bt"):Model.barTracking.source==row::BarSource::HmdAssist?TEXT("hmd_estimate"):TEXT("tracker_estimate"),*value(t.distance),*value(t.elapsed),*speed,*machinePower,
+        Model.lean*100,Model.steer,FMath::RadiansToDegrees(Model.yawRate),*resistance,output.multiplier,*game,
+        UTF8_TO_TCHAR(row::barSourceName(Model.barTracking.source)),Model.barTracking.gapSeconds,
+        UTF8_TO_TCHAR(row::trackingIssueName(Model.barTracking.issue)));
     FFileHelper::SaveStringToFile(line,*SessionFile,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM,&IFileManager::Get(),FILEWRITE_Append);
 }
 void ARowPawn::EndPlay(const EEndPlayReason::Type reason) {

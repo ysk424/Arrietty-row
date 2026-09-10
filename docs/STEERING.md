@@ -65,3 +65,9 @@ indicate steering direction, whose effect also depends on speed. No valid
 calibration/tracking means SETUP with no marker. The camera horizon remains
 level; only the boat/water visuals bob. Private session CSV adds `lean_cm`,
 `steer` (-1 to +1), and `yaw_deg_s` for diagnosing drift without guessing.
+
+Brief exercise-only bar occlusion support uses the fore/aft projection onto
+this same fixed axis. The gauge and steering continue from the tracked HMD's
+lateral position, even when the bar is hidden. It cannot change neutral, axis
+or heading from head yaw. Calibration still requires both real devices.
+See [tracking support](TRACKING.md) for limits, transitions and test scope.
