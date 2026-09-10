@@ -13,6 +13,8 @@ Lake Bled scenery, and downloaded OpenVR SDK retain their own licenses.
 Version **1.1.0** was accepted by the rider on **2026-09-10**, including Kelvin
 wakes and speed-driven bow whitewater. It is the official version on `main`;
 development and normal launches use the original `Arrietty-row` checkout.
+The rider also accepted the subsequent dial-level power gain, watt display and
+stronger speed-aware steering on **2026-09-10**; these improvements are on main.
 Forward-facing travel is intentional: the rider enjoys the lake and water
 ahead while each drive propels the boat forward.
 See [validation](docs/VALIDATION.md) for measured results and evaluation scope.
@@ -47,7 +49,8 @@ filtered position used for steering. See [steering](docs/STEERING.md).
 
 The panel shows **distance, active time, speed, and heart rate**. Distance and
 speed describe the virtual boat's movement. The CSV separately records machine
-distance, elapsed time, speed (from 500 m pace), and watts. Paused time is
+distance, elapsed time, speed (from 500 m pace), and original machine watts.
+It also records the dial level, applied multiplier and game watts. Paused time is
 excluded from active time; missing/stale heart rate is `--`, never 0 bpm.
 Sessions stay under `unreal/ArriettyRow/Saved/Sessions/`.
 
@@ -55,10 +58,15 @@ Sessions stay under `unreal/ArriettyRow/Saved/Sessions/`.
 
 Windows C++/WinRT receives FTMS Rower Data and Heart Rate notifications.
 OpenVR reads the exact configured Tracker by serial, regardless of its old
-SteamVR role. OpenXR renders the HMD. BLE power takes priority; handle velocity
-times thrust to the drive, and the boat coasts during recovery. When BLE power
-is missing, the panel labels a Tracker-based estimate. It is a rowing feel model,
-not a calibrated ergometer. Bluetooth never changes the machine's resistance.
+SteamVR role. OpenXR renders the HMD. BLE power takes priority. At the rider's
+request, game watts are base watts multiplied by the fresh dial level (1-16);
+handle velocity times thrust to the drive, and the boat coasts during recovery.
+The panel shows original BT watts, LOAD and GAME watts separately. When BLE power
+is missing, the base is labeled as a Tracker estimate. A missing, invalid or
+3-second-old level displays `LOAD -- (x1)` and uses gain 1, never a cached level.
+This multiplier is a game adjustment, not a measurement of human power or a
+calibrated ergometer. Existing base-power, acceleration and boat-speed limits
+still apply. Bluetooth never changes the machine's resistance.
 
 The mean water plane is **Z=0 cm**. Wind ripples use five world-space normal
 waves; a dense local surface adds small geometric lake waves. A moving 64 m

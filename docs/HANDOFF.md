@@ -1,5 +1,32 @@
 # Handoff
 
+2026-09-10 acceptance: after accepting the dial-gain speed and requesting better
+turning, the rider approved the resulting steering change and explicitly asked
+to push. The combined power/display/CSV/steering changes are accepted on main.
+This supersedes their earlier pending rider-evaluation status. It does not add
+new quantitative hardware, dial-mapping or long-session HMD measurements.
+
+2026-09-10 steering follow-up: the rider tried dial-gain propulsion and accepted
+its speed, then reported that turning could not keep up. The fixed 0.20 rad/s
+turn ceiling widened the radius as speed rose. Full-steer yaw now scales with
+speed above 2 m/s for a 10 m radius, up to 0.55 rad/s at the existing 5.5 m/s boat
+speed limit. Old low-speed authority/fade remain. Full lean is 20 cm instead of
+26 cm; the +/-8 cm straight zone, squared onset, smoothing, calibrated axis and
+no-yaw-steering rule remain. Rider acceptance is recorded above.
+
+2026-09-10 follow-up after v1.1.0: the rider requested stronger reward for effort,
+dial-level multiplication and a small watt display. Game power now uses base
+watts times a fresh Q1S level 1-16. Original machine watts remain separate from
+this game gain; Tracker fallback uses the same multiplier and is labeled.
+The panel shows BT/Tracker-est watts, LOAD and GAME watts, including fresh machine
+telemetry while stopped or paused. Unknown/invalid/stale level uses gain 1 and
+shows `-- (x1)`; it must not retain an old level indefinitely. CSV appends
+resistance_level, power_multiplier and game_power_w; power_w remains the original
+machine value. Both watts and level expire independently after 3 s for power
+calculation/display. The rider subsequently accepted the resulting speed.
+The full physical dial-to-telemetry mapping still needs a hardware trial; do not
+infer it from the older fixed-level capture. No BLE control writes were added.
+
 2026-09-10 release: the rider accepted the Kelvin wake and bow-whitewater result,
 said this worktree's objective was achieved, and explicitly requested push,
 integration into main, adoption as the official version, and deletion of the

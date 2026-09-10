@@ -136,7 +136,10 @@ row::Input ARowPawn::ReadInput() const {
         in.bar={{bar,0,.65},{1,0,0},true,in.now};
         const bool straight=FParse::Param(FCommandLine::Get(),TEXT("RowDemoStraight"));
         in.head={{0,Demo && !calibrating && !straight?.18*std::sin(SimTime*.07):0,1},{1,0,0},true,in.now};
-        if(Demo) in.telemetry.power.set(95,in.now);
+        if(Demo) {
+            in.telemetry.power.set(95,in.now);
+            in.telemetry.resistance.set(6,in.now);
+        }
     } else {
         // OpenVR head provides a common physical room frame for lean/bar input;
         // also require the actual OpenXR rendering pose to be tracked.
@@ -197,7 +200,7 @@ void ARowPawn::FinishCalibration(const row::Input& in) {
     if(SessionFile.IsEmpty()) {
         const FString dir=FPaths::ProjectSavedDir()/TEXT("Sessions"); IFileManager::Get().MakeDirectory(*dir,true);
         SessionFile=dir/FString::Printf(TEXT("row-%s.csv"),*FDateTime::UtcNow().ToString(TEXT("%Y%m%dT%H%M%S%ss")));
-        FFileHelper::SaveStringToFile(TEXT("utc,event,active_s,distance_m,speed_kmh,heart_bpm,strokes,source,machine_distance_m,machine_elapsed_s,machine_speed_kmh,power_w,lean_cm,steer,yaw_deg_s\n"),*SessionFile);
+        FFileHelper::SaveStringToFile(TEXT("utc,event,active_s,distance_m,speed_kmh,heart_bpm,strokes,source,machine_distance_m,machine_elapsed_s,machine_speed_kmh,power_w,lean_cm,steer,yaw_deg_s,resistance_level,power_multiplier,game_power_w\n"),*SessionFile);
     }
     Notice.Empty(); Record(TEXT("start"));
     UE_LOG(LogTemp,Display,TEXT("ROW_CONTROL action=start"));
@@ -284,8 +287,14 @@ void ARowPawn::Tick(float dt) {
                     TEXT("ENTER received. Move the bar out and back twice. Starts automatically. NUM 0 cancels.");
             }
         }
-        Panel->Detail=FString::Printf(TEXT("%s   %.0f W   %u strokes   HR %s"),Model.usingBt?TEXT("BT power"):TEXT("Tracker estimate"),Model.power,Model.strokes,
-            hr.fresh(in.now,5) && hr.value>0?TEXT("connected"):TEXT("--"));
+        const bool estimateAvailable=Model.state==row::State::Running && row::Model::tracking(in);
+        const auto output=row::samplePower(in.telemetry,in.now,estimateAvailable?Model.barVelocity:0.);
+        const bool powerAvailable=output.usingBt || estimateAvailable;
+        const FString watts=powerAvailable?FString::Printf(TEXT("%.0f"),output.usingBt?output.machineWatts:output.baseWatts):TEXT("--");
+        const FString load=output.resistance>=1?FString::Printf(TEXT("%.0f"),output.resistance):TEXT("-- (x1)");
+        const FString game=powerAvailable?FString::Printf(TEXT("%.0f"),output.gameWatts):TEXT("--");
+        Panel->Detail=FString::Printf(TEXT("%s %s W  |  LOAD %s  |  GAME %s W  |  %u strokes"),
+            output.usingBt?TEXT("BT"):TEXT("Tracker est"),*watts,*load,*game,Model.strokes);
     }
     if(!SessionFile.IsEmpty() && in.now>=NextRecord) { Record(TEXT("sample")); NextRecord=in.now+1; }
     if(ScreenshotAt>0 && time>ScreenshotAt && !ScreenshotPath.IsEmpty()) {
@@ -296,14 +305,19 @@ void ARowPawn::Tick(float dt) {
 }
 void ARowPawn::Record(const TCHAR* event) {
     if(SessionFile.IsEmpty()) return;
-    const double now=row::Devices::seconds(); const auto& t=Snapshot.telemetry;
+    const auto in=ReadInput(); const double now=in.now; const auto& t=in.telemetry;
+    const bool estimateAvailable=Model.state==row::State::Running && row::Model::tracking(in);
+    const auto output=row::samplePower(t,now,estimateAvailable?Model.barVelocity:0.);
     auto value=[&](const row::Field& f,double scale=1.) { return f.fresh(now,5) && f.value>=0?FString::Printf(TEXT("%.3f"),f.value*scale):FString(); };
     const FString hr=Snapshot.heart.value>0?value(Snapshot.heart):FString();
     const FString speed=t.pace.fresh(now) && t.pace.value>=0?FString::Printf(TEXT("%.3f"),t.pace.value>0?1800./t.pace.value:0.):FString();
-    const FString line=FString::Printf(TEXT("%s,%s,%.3f,%.3f,%.3f,%s,%u,%s,%s,%s,%s,%s,%.2f,%.3f,%.3f\n"),
+    const FString resistance=output.resistance>=1?FString::Printf(TEXT("%.0f"),output.resistance):FString();
+    const FString game=output.usingBt || estimateAvailable?FString::Printf(TEXT("%.3f"),output.gameWatts):FString();
+    const FString machinePower=output.usingBt?FString::Printf(TEXT("%.3f"),output.machineWatts):FString();
+    const FString line=FString::Printf(TEXT("%s,%s,%.3f,%.3f,%.3f,%s,%u,%s,%s,%s,%s,%s,%.2f,%.3f,%.3f,%s,%.0f,%s\n"),
         *FDateTime::UtcNow().ToIso8601(),event,Model.elapsed,Model.distance,Model.speed*3.6,*hr,Model.strokes,
-        Demo?TEXT("demo"):Model.usingBt?TEXT("bt"):TEXT("tracker_estimate"),*value(t.distance),*value(t.elapsed),*speed,*value(t.power),
-        Model.lean*100,Model.steer,FMath::RadiansToDegrees(Model.yawRate));
+        Demo?TEXT("demo"):output.usingBt?TEXT("bt"):TEXT("tracker_estimate"),*value(t.distance),*value(t.elapsed),*speed,*machinePower,
+        Model.lean*100,Model.steer,FMath::RadiansToDegrees(Model.yawRate),*resistance,output.multiplier,*game);
     FFileHelper::SaveStringToFile(line,*SessionFile,FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM,&IFileManager::Get(),FILEWRITE_Append);
 }
 void ARowPawn::EndPlay(const EEndPlayReason::Type reason) {

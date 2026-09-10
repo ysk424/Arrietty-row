@@ -21,15 +21,59 @@ int main() {
     std::vector<uint8_t> last{0,0x0b,44,10,0,5,0,0xff,0xff,0xff,0,30,0};
     check(row::parseRower(part.data(),part.size(),10,t),"multipart first");
     check(t.distance.value==1000 && t.pace.value==250 && t.power.value==80,"SI field layout");
+    check(t.resistance.value==6 && t.resistance.received==10,"received dial level");
     check(row::parseRower(last.data(),last.size(),10.1,t),"multipart final");
     check(t.strokeRate.value==22 && t.strokeCount.value==10 && t.elapsed.value==30,"final fields");
     check(t.power.value==80 && t.power.received==10,"partial merge retains timestamp");
     row::parseRower(last.data(),last.size(),20,t);
     check(!t.power.fresh(20) && t.elapsed.fresh(20),"unrelated fragment cannot revive power");
+    check(!t.resistance.fresh(20),"unrelated fragment cannot revive dial level");
     for(size_t n=0;n<part.size();++n) { auto copy=t; check(!row::parseRower(part.data(),n,21,copy),"reject truncation"); check(copy.power.received==10,"atomic failure"); }
     const uint8_t h8[]{6,90},h16[]{7,100,0},contactLost[]{4,90},short16[]{1,90};
     check(row::parseHeart(h8,2)==90 && row::parseHeart(h16,3)==100,"8/16 bit HR");
     check(!row::parseHeart(contactLost,2) && !row::parseHeart(short16,2),"unknown HR");
+    row::Telemetry powerTelemetry; powerTelemetry.power.set(80,10); powerTelemetry.resistance.set(6,10);
+    auto output=row::samplePower(powerTelemetry,10,-.5);
+    check(output.usingBt && output.machineWatts==80 && output.baseWatts==80 && output.gameWatts==480,
+        "game watts multiply received power and dial without changing machine watts");
+    powerTelemetry.resistance.set(16,10.1); output=row::samplePower(powerTelemetry,10.1,-.5);
+    check(output.multiplier==16 && output.gameWatts==1280,"live dial increase applies immediately");
+    powerTelemetry.resistance.set(1,10.2); output=row::samplePower(powerTelemetry,10.2,-.5);
+    check(output.multiplier==1 && output.gameWatts==80,"live dial decrease applies immediately");
+    powerTelemetry.power.set(0,10.3); powerTelemetry.resistance.set(16,10.3);
+    check(row::samplePower(powerTelemetry,10.3,-.5).gameWatts==0,"received zero watts remain zero at maximum load");
+    powerTelemetry.power.set(80,13.3); output=row::samplePower(powerTelemetry,13.31,-.5);
+    check(output.usingBt && output.resistance==-1 && output.multiplier==1 && output.gameWatts==80,
+        "stale load is unknown with explicit unity gain");
+    powerTelemetry.resistance.set(6,16.4); output=row::samplePower(powerTelemetry,16.4,-.5);
+    check(!output.usingBt && output.machineWatts==-1 && output.baseWatts==45 && output.gameWatts==270,
+        "fresh resistance cannot revive stale watts; tracker estimate also uses dial");
+    check(row::samplePower(powerTelemetry,16.4,0).gameWatts==0,"stationary fallback produces zero watts");
+    for(double invalidLoad:{-1.,0.,17.,32767.,1.5,std::numeric_limits<double>::quiet_NaN()}) {
+        powerTelemetry.resistance.set(invalidLoad,17);
+        output=row::samplePower(powerTelemetry,17,-.5);
+        check(output.resistance==-1 && output.multiplier==1 && output.gameWatts==45,"invalid dial cannot amplify power");
+    }
+    powerTelemetry.power.set(std::numeric_limits<double>::quiet_NaN(),17);
+    check(!row::samplePower(powerTelemetry,17,-.5).usingBt,"nonfinite watts use tracker estimate");
+    auto rowAtLoad=[](double load) {
+        row::Model boat; auto in=input(0,.4); start(boat,in);
+        for(int i=1;i<=1440;++i) {
+            const double time=i*.01,phase=std::fmod(time,2.4);
+            const double bar=phase<.8?.4*std::cos(row::Pi*phase/.8):-.4*std::cos(row::Pi*(phase-.8)/1.6);
+            in=input(time,bar); in.telemetry.power.set(20,time); in.telemetry.resistance.set(load,time);
+            boat.tick(in,.01);
+        }
+        return boat;
+    };
+    const auto load1=rowAtLoad(1),load6=rowAtLoad(6),load16=rowAtLoad(16);
+    check(load1.distance<load6.distance && load6.distance<load16.distance,"same strokes travel farther at higher dial levels");
+    check(load16.speed<=5.5 && std::isfinite(load16.distance),"maximum dial preserves boat speed bound");
+    row::Model fixedBar; start(fixedBar,input(0));
+    for(int i=1;i<=300;++i) {
+        auto in=input(i*.01); in.telemetry.resistance.set(16,in.now); fixedBar.tick(in,.01);
+    }
+    check(fixedBar.speed==0 && fixedBar.distance==0,"maximum load and frozen BT watts cannot propel stationary handle");
     row::Model m; check(start(m,input(0)),"start with tracking");
     for(int i=1;i<=300;++i) m.tick(input(i*.01),.01);
     check(m.distance==0 && m.speed==0,"stationary tracker with BT power stays still");
@@ -76,6 +120,26 @@ int main() {
     const auto leftTurn=turn(-.18),rightTurn=turn(.18),gentleTurn=turn(.10);
     check(std::abs(leftTurn.heading+rightTurn.heading)<1e-12,"symmetric left and right steering");
     check(gentleTurn.heading>0 && gentleTurn.heading<rightTurn.heading*.08,"gentle onset outside margin");
+    auto steadyTurn=[](double speed,double lateral) {
+        row::Model boat; start(boat,input(0));
+        for(int i=1;i<=500;++i) {
+            // Hold forward speed to isolate steering from recovery/drag.
+            boat.speed=speed; boat.tick(input(i*.01,0,lateral),.01);
+        }
+        return boat;
+    };
+    for(double speed:{2.,3.7,5.5}) {
+        const auto turning=steadyTurn(speed,.22);
+        check(std::abs(speed/turning.yawRate-row::Model::FullTurnRadius)<.002,
+            "full steering holds a 10 m radius across exercise speeds");
+    }
+    const auto mediumLean=steadyTurn(3.7,.18),fullLean=steadyTurn(3.7,.20);
+    check(3.7/mediumLean.yawRate<15,"18 cm lean gives an effective high-speed turn");
+    check(fullLean.steer>.9999,"20 cm lean reaches full steering");
+    check(steadyTurn(3.7,.10).steer<.03,"small lean beyond 8 cm remains gentle");
+    check(std::abs(steadyTurn(1.2,.22).yawRate-.20)<.0001,"low-speed turn authority is preserved");
+    check(steadyTurn(0,.22).yawRate==0,"stationary boat cannot spin from lean alone");
+    check(steadyTurn(5.5,.22).yawRate<=.55,"high-speed turn rate remains bounded");
     m=rightTurn;
     for(int i=1;i<=200;++i) m.tick(input(2+i*.01),.01);
     const double settledHeading=m.heading;

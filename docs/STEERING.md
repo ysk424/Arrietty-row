@@ -40,13 +40,24 @@ the rendered world by subtracting physical head yaw from rendered head yaw.
 | Parameter | Value |
 | --- | --- |
 | Straight zone | -8 to +8 cm of filtered lateral position |
-| Full steering | 26 cm left/right |
+| Full steering | 20 cm left/right |
 | Curve beyond the margin | Squared normalized displacement, gentle near center |
-| Maximum turn rate | 0.20 rad/s (about 11.5 degrees/s) |
-| Low speed scaling | Linear to full strength at 1.2 m/s |
+| Full-steer radius at 2-5.5 m/s | 10 m, after smoothing settles |
+| Full-steer turn rate | Speed / 10, limited to 0.20-0.55 rad/s before low-speed scaling |
+| Maximum turn rate | 0.55 rad/s (about 31.5 degrees/s), reached at 5.5 m/s |
+| Low speed scaling | Linear to full strength at 1.2 m/s; zero while stationary |
 | Position smoothing | Exponential, 0.28 s time constant |
 | Turn smoothing outside the zone | Exponential, 0.35 s time constant |
 | Return inside the zone | Turn rate becomes zero; current heading is preserved |
+
+After the rider accepted the higher speed from dial gain, the old fixed
+0.20 rad/s cap made fast travel turn in wider circles. Turn rate now increases
+with boat speed above 2 m/s so full steering maintains a 10 m target radius.
+Below 2 m/s, the old full-steer turn rate and low-speed fade are preserved.
+Full steering is easier to reach at 20 cm, while the +/-8 cm straight zone,
+squared onset and both smoothing time constants stay the same. At 18 cm lean,
+the settled high-speed radius is about 14.4 m. These are game-model targets;
+transient smoothing changes the radius while leaning or accelerating.
 
 The gauge uses that same filtered position, with a green straight band and a
 marker over a +/-30 cm scale. CENTER means no commanded turn; LEFT and RIGHT

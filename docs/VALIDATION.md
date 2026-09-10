@@ -1,5 +1,69 @@
 # Validation
 
+## Steering at the accepted higher speed, 2026-09-10
+
+The rider subsequently approved dial-gain speed and reported insufficient
+turning authority. The new steering model reaches full input at 20 cm and
+maintains a 10 m full-steer target radius above 2 m/s. See `STEERING.md` for the
+curve, low-speed behavior and smoothing. The +/-8 cm straight zone is unchanged.
+
+- **104 core + 46 water checks pass**: `logs/native-steering-speed.log`.
+  New steering checks hold full-steer radius within 0.002 m of 10 m at fixed
+  speeds 2, 3.7 and 5.5 m/s; verify the 18/20 cm response, gentle 10 cm onset,
+  preserved low-speed authority, zero stationary target and bounded turn rate.
+  Existing symmetric steering, immediate CENTER response, calibration and
+  no-head-yaw-steering checks still pass.
+- UE **5.8.2 Editor and Game Development targets build successfully**:
+  `logs/ue-steering-speed-editor-build.log` and
+  `logs/ue-steering-speed-game-build.log`.
+- UE setup/repeated Enter/pause/stop/panel-attachment automation passes:
+  `logs/setup-controls-20260910-205114.log`.
+- An actual offscreen D3D12 demo, without a screenshot during the run, records
+  **19.417 active seconds / 43.294 m** and exits normally with no tracking-loss
+  events. Its 22 CSV rows match the new lean curve, retain original/game watts
+  at synthetic 95/570 W, and show turn rates above the old speed-independent
+  limit for the same steering input. Peak speed is 12.532 km/h and peak turn
+  rate is 13.225 degrees/s in this varying-lean demo. Evidence:
+  `logs/row-steering-speed-demo.log` and its ignored synthetic session CSV.
+- The rider subsequently approved the steering change and explicitly requested
+  push, accepting the combined power and steering behavior. The runtime figures
+  above are from a short synthetic check; this approval does not add quantitative
+  physical turning-radius or long-session HMD measurements.
+
+## Dial gain and watt display follow-up, 2026-09-10
+
+The rider requested dial-level multiplication to reward effort in the game.
+This follows the accepted v1.1.0. The rider later accepted the speed and subsequent
+steering improvements and requested push, as recorded above.
+
+- `tools/build_native.ps1`: **95 core + 46 water checks pass** under MSVC.
+  New coverage includes resistance parsing and independent expiry, live gain
+  increases/decreases, zero watts, invalid/missing/stale levels, Tracker fallback,
+  increasing distance with identical synthetic strokes at levels 1/6/16, and
+  no propulsion from a stationary handle even with maximum level and BT watts.
+- UE **5.8.2 Editor and Game Development builds succeed**. Evidence:
+  `logs/ue-load-build.log`, `logs/ue-load-game-build.log`.
+- Existing UE setup, repeated Enter, pause, stop/retry and instrument attachment
+  automation passes: `logs/setup-controls-20260910-203653.log`.
+- Actual **1600 x 1000 D3D12** renders were inspected with the final text layout:
+  `artifacts/row-load-watts-final.png` shows `BT 95 W | LOAD 6 | GAME 570 W`;
+  `artifacts/row-load-unavailable.png` shows unavailable watts as `--` and
+  `LOAD -- (x1)`. Both retain the four main metrics and the +/-8 cm gauge without
+  clipping. Matching logs are under `logs/row-load-*.log`.
+- The final synthetic session has **16 rows and 18 columns**. CSV verification
+  confirms original 95 W, level/multiplier 6 and game 570 W remain separate,
+  source is `demo`, initial distance/time are zero, distance advances and missing
+  HR remains blank. It ends at 12.075 m. The capture session enters
+  `tracking_lost` after the screenshot and then exits normally; this short
+  render/CSV check does not establish continuous-run or HMD timing stability.
+- These automated checks used synthetic strokes. No instrumented physical
+  dial-change trial was performed. The old fixed-level capture cannot establish
+  the full 1-16 dial mapping or whether the machine's own watt calculation already
+  accounts for resistance.
+  GAME watts are an intentional game gain, not measured human watts. The rider
+  subsequently accepted the stronger drive response; the full dial mapping
+  remains outside this test's scope.
+
 ## Accepted version 1.1.0 and integration, 2026-09-10
 
 The rider stated that the worktree objective was achieved and the result was

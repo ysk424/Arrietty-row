@@ -17,6 +17,25 @@ struct Telemetry {
     Field power, pace, distance, elapsed, strokeRate, strokeCount, resistance, heart;
     unsigned packets=0, rejected=0;
 };
+struct PowerSample {
+    double machineWatts=-1,baseWatts=0,resistance=-1,multiplier=1,gameWatts=0;
+    bool usingBt=false;
+};
+// User-selected game gain, not a measurement of human power. Keep the machine's
+// original watts separate. Only a fresh, valid Q1S dial level can change gain.
+inline PowerSample samplePower(const Telemetry& t,double now,double barVelocity) {
+    PowerSample p;
+    p.usingBt=t.power.fresh(now) && std::isfinite(t.power.value) && t.power.value>=0;
+    if(p.usingBt) p.machineWatts=t.power.value;
+    p.baseWatts=p.usingBt?std::clamp(p.machineWatts,0.,1000.):
+        std::isfinite(barVelocity)?std::clamp(-barVelocity*90.,0.,240.):0.;
+    if(t.resistance.fresh(now) && std::isfinite(t.resistance.value) &&
+        t.resistance.value>=1 && t.resistance.value<=16 && std::floor(t.resistance.value)==t.resistance.value) {
+        p.resistance=t.resistance.value; p.multiplier=p.resistance;
+    }
+    p.gameWatts=p.baseWatts*p.multiplier;
+    return p;
+}
 // FTMS 1.0 section 4.8: More Data=1 omits the mandatory rate/count pair.
 // Each field has its own timestamp: another fragment must not revive stale power.
 inline bool parseRower(const uint8_t* data,size_t size,double now,Telemetry& out) {
@@ -64,7 +83,7 @@ enum class State { Ready, Running, Paused, TrackingLost, Calibrating };
 struct Input { Pose bar,head; Telemetry telemetry; double now=0; };
 struct SteeringFrame { Vec3 forward{1,0,0},center; bool valid=false; };
 struct Model {
-    static constexpr double StraightMargin=.08,FullLean=.26;
+    static constexpr double StraightMargin=.08,FullLean=.20,FullTurnRadius=10.;
     State state=State::Ready;
     double speed=0,distance=0,elapsed=0,heading=0,yawRate=0;
     double barPosition=0,barVelocity=0,lean=0,steer=0,drive=0,power=0;
@@ -110,7 +129,10 @@ struct Model {
         lean+=(std::clamp(lateral,-.35,.35)-lean)*(1-std::exp(-dt/.28));
         const double amount=std::clamp((std::abs(lean)-StraightMargin)/(FullLean-StraightMargin),0.,1.);
         steer=std::copysign(amount*amount,lean); // Gentle onset just outside the straight zone.
-        const double targetYaw=steer*.20*std::clamp(speed/1.2,0.,1.);
+        // Keep a roughly 10 m full-steer radius as game watts raise speed.
+        // Preserve the old low-speed authority and fade to zero at a standstill.
+        const double fullYaw=std::clamp(speed/FullTurnRadius,.20,.55)*std::clamp(speed/1.2,0.,1.);
+        const double targetYaw=steer*fullYaw;
         // Returning to the straight zone removes steering immediately. Ramp into
         // turns gently, without a lingering turn after the center display lights.
         if(amount==0) yawRate=0;
@@ -127,11 +149,11 @@ struct Model {
             }
         }
         drive=std::clamp((-barVelocity-.05)/.65,0.,1.);
-        const auto& t=in.telemetry;
-        usingBt=t.power.fresh(in.now) && t.power.value>=0;
+        const auto output=samplePower(in.telemetry,in.now,barVelocity);
+        usingBt=output.usingBt;
         // Handle motion gates power: frozen positive FTMS power never propels a
         // stationary handle. The 2.3 drive factor accounts for recovery duty.
-        power=usingBt?std::clamp(t.power.value,0.,1000.):std::clamp(-barVelocity*90.,0.,240.);
+        power=output.gameWatts;
         const double thrust=(usingBt?power*2.3:power)*drive/std::max(.9,speed);
         const double drag=5.5*speed*speed+4.*speed;
         const double old=speed;

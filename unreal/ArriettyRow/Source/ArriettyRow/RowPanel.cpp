@@ -19,7 +19,7 @@ int32 URowPanel::NativePaint(const FPaintArgs&,const FGeometry& g,const FSlateRe
     const FString values[]{Distance,Time,Speed,Heart};
     for(int i=0;i<4;++i) { text(25+247*i,73,labels[i],18,muted); text(25+247*i,110,values[i],43,white); }
     box(25,195,950,1,FLinearColor(.07,.17,.16));
-    text(25,215,Detail,18,muted);
+    text(25,215,Detail,18,white);
     const float margin=float(row::Model::StraightMargin*100),pixelsPerCm=6;
     const bool centered=FMath::Abs(LeanCm)<=margin;
     const FLinearColor amber(1.f,.70f,.26f);
